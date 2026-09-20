@@ -3,6 +3,7 @@ import { DayTag, EmptyState, PageHeader } from "@/components/ui";
 import { getEventSummaries } from "@/lib/queries";
 import { describeScale, formatMeasurement, isLowerBetter } from "@/lib/scoring";
 import { SITE } from "@/lib/site";
+import { formatEventDate } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -40,11 +41,7 @@ export default async function EventsPage() {
                   </h2>
                   {group.date ? (
                     <span className="text-xs text-muted">
-                      {new Date(`${group.date}T12:00:00`).toLocaleDateString(undefined, {
-                        weekday: "long",
-                        month: "long",
-                        day: "numeric",
-                      })}
+                      {formatEventDate(group.date)}
                     </span>
                   ) : null}
                 </div>

@@ -1,10 +1,21 @@
+import { EVENT_TIME_ZONE, zonedTimeToUtc } from "./time";
+
+/**
+ * Kickoff, as the wall-clock time you would say out loud in Eastern time — no
+ * UTC offset. The offset for that date (EDT or EST) is worked out below, so
+ * moving the date across a clock change cannot leave it an hour off.
+ */
+const STARTS_AT_LOCAL = "2027-09-10T10:00";
+
 /** Event-wide settings. Adjust these once you lock the real dates. */
 export const SITE = {
-  name: "RVA4NEVA Olympics",
-  shortName: "RVA4NEVA",
+  name: "#rva4neva Olympics",
+  shortName: "#rva4neva",
   tagline: "Two days. Ten events. One champion.",
-  /** Local ISO datetime the games kick off. Drives the homepage countdown. */
-  startsAt: "2027-09-10T10:00:00-04:00",
+  timeZone: EVENT_TIME_ZONE,
+  startsAtLocal: STARTS_AT_LOCAL,
+  /** The same moment as an absolute UTC instant. Drives the homepage countdown. */
+  startsAt: zonedTimeToUtc(STARTS_AT_LOCAL).toISOString(),
   days: [
     { day: 1, label: "Day One", date: "2027-09-10" },
     { day: 2, label: "Day Two", date: "2027-09-11" },

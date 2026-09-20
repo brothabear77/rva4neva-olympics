@@ -18,6 +18,31 @@
   --font-display: var(--font-oswald), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+
+  /* Quote carousel: the outgoing and incoming quote travel together, one slide
+     width. Opacity is pinned to 1 because a resting off-screen quote is
+     opacity 0, and the outgoing one must stay visible while it leaves. */
+  --animate-quote-in-right: quote-in-right 700ms ease-in-out;
+  --animate-quote-in-left: quote-in-left 700ms ease-in-out;
+  --animate-quote-out-left: quote-out-left 700ms ease-in-out;
+  --animate-quote-out-right: quote-out-right 700ms ease-in-out;
+
+  @keyframes quote-in-right {
+    from { transform: translateX(100%); opacity: 1; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes quote-in-left {
+    from { transform: translateX(-100%); opacity: 1; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes quote-out-left {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(-100%); opacity: 1; }
+  }
+  @keyframes quote-out-right {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 1; }
+  }
 }
 
 /* Hairlines and fills derived from the palette, so every shade on screen

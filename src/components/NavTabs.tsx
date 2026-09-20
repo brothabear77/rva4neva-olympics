@@ -16,7 +16,7 @@ export function NavTabs() {
         <div className="flex items-center justify-between gap-4 py-3">
           <Link href="/" className="group flex items-baseline gap-2">
             <span className="font-display text-xl font-bold uppercase tracking-[0.08em] text-paper">
-              RVA<span className="text-accent">4</span>NEVA
+              <span className="normal-case">#rva<span className="text-accent">4</span>neva</span>
             </span>
             <span className="hidden font-display text-xs uppercase tracking-[0.22em] text-muted sm:inline">
               Olympics

@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { Countdown } from "@/components/Countdown";
+import { QuoteCarousel } from "@/components/QuoteCarousel";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import { RankBadge } from "@/components/ui";
+import { QUOTES } from "@/content/quotes";
 import { getEventSummaries, getLeaderboard, getRecentResults } from "@/lib/queries";
+import { cleanQuotes } from "@/lib/quotes";
 import { formatMeasurement } from "@/lib/scoring";
 import { SITE, hasStarted } from "@/lib/site";
 
@@ -15,11 +18,13 @@ export default async function HomePage() {
     return (
       <section className="flex min-h-[60vh] flex-col items-center justify-center gap-10 text-center">
         <h1 className="font-display text-5xl font-bold uppercase leading-[0.95] tracking-[0.02em] text-paper sm:text-8xl">
-          RVA<span className="text-accent">4</span>NEVA
+          <span className="normal-case">#rva<span className="text-accent">4</span>neva</span>
           <br />
           Olympics
         </h1>
         <Countdown startsAt={SITE.startsAt} large />
+        {/* Renders nothing until src/content/quotes.ts has a quote in it. */}
+        <QuoteCarousel quotes={cleanQuotes(QUOTES)} />
       </section>
     );
   }
@@ -45,7 +50,7 @@ export default async function HomePage() {
         />
         <p className="eyebrow">{SITE.tagline}</p>
         <h1 className="mt-3 font-display text-4xl font-bold uppercase leading-[0.95] tracking-[0.02em] text-paper sm:text-6xl">
-          RVA<span className="text-accent">4</span>NEVA
+          <span className="normal-case">#rva<span className="text-accent">4</span>neva</span>
           <br />
           Olympics
         </h1>

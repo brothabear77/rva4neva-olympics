@@ -85,6 +85,31 @@ is wrong. **Any single bad row blocks the whole import** — a half-applied
 scoreboard is worse than a rejected file. The commit re-validates server-side
 and runs as one transaction.
 
+## Countdown quotes
+
+Until kickoff the home page is the title, the countdown, and a borderless
+carousel of quotes. The quotes live in one file, [`src/content/quotes.ts`](src/content/quotes.ts):
+
+```ts
+export const QUOTES: QuoteInput[] = [
+  { text: "The quote itself.", author: "Who said it" },
+  { text: "An unattributed line." },
+];
+```
+
+- Order in the file is the order on screen. `author` is optional.
+- Quotation marks are added for you. If you paste some in, the outer pair is
+  removed. A quote that contains a `"` needs single quotes or backticks around
+  it in the file.
+- Every quote stays up for 5 seconds (`DWELL_MS` in `src/lib/quotes.ts`).
+- The carousel is hidden until there is at least one quote.
+- Quotes slide sideways. Arrows step to the previous or next quote and wrap
+  around at either end. Up to 8 quotes get a row of dots as well; with more, the
+  dots become a counter ("3 / 13").
+- It pauses under the mouse, while focused by keyboard, and with the tab hidden.
+  The pause / play button covers touch screens. With reduced motion requested it
+  starts paused and swaps quotes without sliding.
+
 ## Layout
 
 ```
@@ -93,6 +118,8 @@ src/lib/schema.ts      Drizzle schema for the app and audit schemas
 src/lib/queries.ts     read models for the pages
 src/lib/actions.ts     every write, each wrapped in withActor()
 src/lib/csv.ts         parsing and import preview — pure, unit-tested
+src/lib/quotes.ts      tidies the quotes and sets how long each stays up
+src/content/quotes.ts  the quotes themselves — the file you edit
 src/lib/db.ts          pooling and the withActor() transaction helper
 drizzle/               migrations; 0001 is the hand-written audit layer
 scripts/               migrate and seed

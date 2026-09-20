@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatEventClock } from "@/lib/time";
 
 /**
  * Keeps a server-rendered page current by re-fetching it on an interval.
@@ -57,7 +58,7 @@ export function LiveRefresh({ intervalMs = 10_000 }: { intervalMs?: number }) {
         <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
       </span>
       {updatedAt
-        ? `Updated ${updatedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}`
+        ? `Updated ${formatEventClock(updatedAt)}`
         : "Live"}
     </span>
   );

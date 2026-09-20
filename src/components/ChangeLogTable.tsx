@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { restoreChange } from "@/lib/actions";
 import { Banner } from "./ui";
 import { useScorekeeperName } from "./useScorekeeperName";
+import { formatEventDateTime } from "@/lib/time";
 import type { ActionResult } from "@/lib/actions";
 import type { ChangeLogRow } from "@/lib/queries";
 
@@ -65,12 +66,7 @@ export function ChangeLogTable({ entries }: { entries: ChangeLogRow[] }) {
                 <p className="mt-0.5 text-xs text-muted">
                   {entry.changedBy} ·{" "}
                   <time dateTime={new Date(entry.changedAt).toISOString()}>
-                    {new Date(entry.changedAt).toLocaleString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
+                    {formatEventDateTime(entry.changedAt)}
                   </time>
                   {entry.restoredFromId ? ` · from change #${entry.restoredFromId}` : ""}
                 </p>
