@@ -25,7 +25,7 @@ Points floor at 0 and are deliberately **not** capped at 1000 — beating the to
 benchmark should be worth something, as in a real decathlon.
 
 The formula lives in one place, [`src/lib/scoring.ts`](src/lib/scoring.ts), and is
-used by the submit form's live preview, the CSV importer and the server, so the
+used by the score grid's live preview, the CSV importer and the server, so the
 number you see before submitting is the number that lands on the board.
 
 ## Anyone can submit — nothing can be lost
@@ -66,6 +66,52 @@ npm run dev
 | `npm run db:psql` | psql shell into the container |
 | `npm run db:reset` | wipe the volume and rebuild from scratch |
 | `npm run db:studio` | Drizzle Studio |
+
+## The score grid
+
+The Submit page opens on a scoresheet: the events across the top (grouped by
+day), the athletes down the side, and a cell for every pairing. Cells start out
+empty. A score that is already stored shows in gray as the cell's placeholder,
+with its points underneath, so it still reads as the state of the competition.
+
+- A toggle above the grid switches between **Add scores** (the default) and
+  **Delete scores**. Each does one job and can't do the other's.
+- In add mode, type a result in any cell to add or replace a score; its points
+  appear underneath as you go. **A blank cell is never sent, so nothing is ever
+  erased.**
+- Enter or the arrow keys move up and down a column.
+- The focused cell's event heading and athlete name light up, so you can always
+  see which pairing you are typing into.
+- **Add an athlete** puts a new row at the bottom. They join the roster when you
+  save a score for them.
+- Only cells you typed a different number into are sent, and they are saved
+  together in one transaction: all of them or none. Retyping the value a cell
+  already has changes nothing. Numbers are rounded to 4 decimal places, which is
+  what the database keeps.
+- After a save the typed text clears and each saved cell shows its new value as
+  the placeholder.
+- The Save button stays disabled while any cell is not a number.
+- The toggle locks while there are unsaved changes ("Save or discard your changes
+  to switch modes"), so adding and deleting can never be mixed in one save.
+- Notes on an existing score are left alone (the grid has no notes column). CSV
+  upload is the other tab.
+
+### Delete mode
+
+- Every cell is filled in with its stored score. **Empty a cell and save to
+  delete that score.** Editing a filled cell just empties it, so a stray
+  keystroke can only ever mean "delete", never "change". Cells with no score are
+  inert.
+- A cell marked for deletion turns dashed, shows its old value in gray, and has
+  an **undo** link. The button counts what it is about to do ("Delete 2 scores").
+- Nothing changes until you press that button. Deleting uses its own server
+  action (`deleteScores`), separate from the one that saves scores
+  (`submitGrid`), so saving structurally cannot delete anything.
+- A deleted score is not gone for good: the whole row is kept in Change History,
+  and its **Undo** button puts it back.
+
+The rows and columns come from the database, so it is 10 x 10 with ten events and
+ten athletes and grows a row per athlete added.
 
 ## CSV format
 
@@ -118,6 +164,7 @@ src/lib/schema.ts      Drizzle schema for the app and audit schemas
 src/lib/queries.ts     read models for the pages
 src/lib/actions.ts     every write, each wrapped in withActor()
 src/lib/csv.ts         parsing and import preview — pure, unit-tested
+src/lib/grid.ts        what a typed cell means and which cells changed — pure, unit-tested
 src/lib/quotes.ts      tidies the quotes and sets how long each stays up
 src/content/quotes.ts  the quotes themselves — the file you edit
 src/lib/db.ts          pooling and the withActor() transaction helper

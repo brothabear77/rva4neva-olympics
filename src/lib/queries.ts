@@ -190,6 +190,13 @@ export async function getEventsForForm() {
     .orderBy(asc(events.day), asc(events.sortOrder), asc(events.name));
 }
 
+/** Every stored score as a bare (athlete, event, value) triple, to prefill the score grid. */
+export async function getResultValues() {
+  return db
+    .select({ athleteId: results.athleteId, eventId: results.eventId, rawValue: results.rawValue })
+    .from(results);
+}
+
 export async function getAthletes() {
   return db.select().from(athletes).orderBy(asc(athletes.name));
 }

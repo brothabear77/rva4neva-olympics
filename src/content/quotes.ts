@@ -31,5 +31,15 @@ export const QUOTES: QuoteInput[] = [
   { text: "They probably wouldn’t listen to someone fat like Ahmed", author: "Mohit"},
   { text: "I’ve seen you move, I’m not worried. Bricks for feet", author: "Ahmed, to David"},
   { text: "Let’s run it next week. Don’t hurt yourself old man", author: "David, to Ahmed"},
-  { text: "And yet you stand even with pam. Shoulder to shoulder. Stand tall; you are strong", author: "Marco, to Ahmed"}
+  { text: "And yet you stand even with pam. Shoulder to shoulder. Stand tall; you are strong", author: "Marco, to Ahmed"},
+  { text: "Unironically better than you at tennis", author: "Marco, to Mohit"},
+  { text: "I have a punching bag with all of your faces to remind me of what’s at stake", author: "Marco"},
+  { text: "i would’ve been #1 nicky poo", author: "Pam"},
+  { text: "so she’s fine with coming in last?", author: "Allen, referring to Pam"},
+  { text: "See you on the distance race big dog", author: "Marco, to Nick"},
+  { text: "Good luck with your one category Nick", author: "Marco"},
+  { text: "So it’s settled Nick #1. Pam / Ahmed #2. David < Mohit", author: "Marco"},
+  { text: "Pam you played sports in high school, I LEFT high school to play sports there is no way you think you’re more athletic than me 😭", author: "Ahmed"},
+  { text: "I just don’t get where the confidence comes from with a former semi-pro athlete and a former D1 athlete in here but I don’t mind humbling people", author: "Nick"},
+  
 ];

@@ -2,17 +2,25 @@
 
 import { useState } from "react";
 import { CsvUpload } from "./CsvUpload";
-import { ResultForm } from "./ResultForm";
+import { ScoreGrid, type StoredResult } from "./ScoreGrid";
 import type { Athlete, Event } from "@/lib/schema";
 
-type Mode = "form" | "csv";
+type Mode = "grid" | "csv";
 
 /**
- * The two ways in: one score at a time from the sideline, or a whole file at
- * once when somebody has been keeping tally on paper.
+ * The two ways in: fill in the scoresheet by hand, or upload a whole file when
+ * somebody has been keeping tally on paper.
  */
-export function SubmitPanels({ events, athletes }: { events: Event[]; athletes: Athlete[] }) {
-  const [mode, setMode] = useState<Mode>("form");
+export function SubmitPanels({
+  events,
+  athletes,
+  results,
+}: {
+  events: Event[];
+  athletes: Athlete[];
+  results: StoredResult[];
+}) {
+  const [mode, setMode] = useState<Mode>("grid");
 
   const tab = (value: Mode, label: string, hint: string) => {
     const active = mode === value;
@@ -46,12 +54,19 @@ export function SubmitPanels({ events, athletes }: { events: Event[]; athletes: 
   return (
     <>
       <div role="tablist" aria-label="How to submit" className="mb-6 flex flex-col gap-2 sm:flex-row">
-        {tab("form", "One result", "Type a single score")}
+        {tab("grid", "Score grid", "Fill in the scoresheet")}
         {tab("csv", "CSV upload", "Import a whole file")}
       </div>
 
       <div className="card p-4 sm:p-6">
-        {mode === "form" ? <ResultForm events={events} athletes={athletes} /> : <CsvUpload />}
+        {/* Both stay mounted and one is hidden, so flipping to the CSV tab and back
+            does not throw away a half-filled grid. */}
+        <div hidden={mode !== "grid"}>
+          <ScoreGrid events={events} athletes={athletes} results={results} />
+        </div>
+        <div hidden={mode !== "csv"}>
+          <CsvUpload />
+        </div>
       </div>
     </>
   );

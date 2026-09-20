@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, withActor, type Tx } from "./db";
 import { athletes, changeLog, events, importBatches, results } from "./schema";
 import { isScorable, scoreResult } from "./scoring";
 import { buildImportPreview, parseResultsCsv, type ImportPreview } from "./csv";
+import { MAX_RAW_VALUE, type GridDeletion, type GridSubmission } from "./grid";
 
 /**
  * Every write goes through here.
@@ -70,76 +71,162 @@ async function findOrCreateAthlete(tx: Tx, name: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Submitting a single result
+// Saving the score grid
 // ---------------------------------------------------------------------------
 
-const submitSchema = z.object({
-  eventId: z.string().uuid("Pick an event"),
-  athleteName: z.string().trim().min(1, "Who scored this?").max(80, "That name is too long"),
-  rawValue: z
-    .string()
-    .trim()
-    .min(1, "Enter a measurement")
-    .refine((v) => Number.isFinite(Number(v)), "That measurement is not a number")
-    .transform(Number)
-    .refine((v) => Math.abs(v) < 1e8, "That measurement is out of range"),
-  notes: z.string().trim().max(280, "Keep notes under 280 characters").default(""),
+const gridSchema = z.object({
   submittedBy: z.string().trim().max(80).default(""),
+  changes: z
+    .array(
+      z.object({
+        athleteId: z.string().uuid().nullable(),
+        athleteName: z.string().trim().min(1, "Every row needs an athlete name").max(80, "That name is too long"),
+        eventId: z.string().uuid(),
+        value: z
+          .number()
+          .finite("That measurement is not a number")
+          .refine((v) => Math.abs(v) < MAX_RAW_VALUE, "That measurement is out of range"),
+      }),
+    )
+    .min(1, "There is nothing to save.")
+    .max(2000, "That is too many changes at once."),
 });
 
-export async function submitResult(formData: FormData): Promise<ActionResult> {
-  const parsed = submitSchema.safeParse({
-    eventId: formData.get("eventId"),
-    athleteName: formData.get("athleteName"),
-    rawValue: formData.get("rawValue"),
-    notes: formData.get("notes") ?? "",
-    submittedBy: formData.get("submittedBy") ?? "",
-  });
-
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the form and try again.");
-  const input = parsed.data;
-  const actor = input.submittedBy || input.athleteName;
+/**
+ * Apply every changed cell of the grid in one transaction.
+ *
+ * All or nothing, like the CSV import: a half-saved sheet would leave the
+ * scoreboard showing some of a scorekeeper's entries and not others, with no
+ * hint which. Points are computed here from the event's own scale rather than
+ * trusted from the browser.
+ *
+ * Every change is a score to write, replacing any existing one for that athlete
+ * and event. This never removes anything: blank cells are not sent, and there is
+ * no way to ask for a deletion here (that lives on each event's page, where it
+ * asks first). Notes on an existing score are left as they are — the grid has no
+ * notes column, and overwriting them with blanks would lose them.
+ */
+export async function submitGrid(input: GridSubmission): Promise<ActionResult<{ saved: number }>> {
+  const parsed = gridSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the grid and try again.");
+  const { changes, submittedBy } = parsed.data;
+  const actor = submittedBy || "anonymous";
 
   try {
     const outcome = await withActor({ actor }, async (tx) => {
-      const [event] = await tx.select().from(events).where(eq(events.id, input.eventId)).limit(1);
-      if (!event) throw new Error("That event no longer exists.");
-      if (!isScorable(event)) throw new Error(`${event.name} has no scoring scale set yet.`);
+      const eventRows = await tx
+        .select()
+        .from(events)
+        .where(inArray(events.id, [...new Set(changes.map((c) => c.eventId))]));
+      const eventById = new Map(eventRows.map((e) => [e.id, e]));
 
-      const athlete = await findOrCreateAthlete(tx, input.athleteName);
-      const points = scoreResult(input.rawValue, event);
+      // One lookup per athlete, however many cells they have.
+      const athleteByKey = new Map<string, { id: string; name: string }>();
+      const resolveAthlete = async (change: (typeof changes)[number]) => {
+        const key = change.athleteId ?? `new:${change.athleteName.toLowerCase()}`;
+        const cached = athleteByKey.get(key);
+        if (cached) return cached;
 
-      const [saved] = await tx
-        .insert(results)
-        .values({
-          eventId: event.id,
-          athleteId: athlete.id,
-          rawValue: input.rawValue,
-          points,
-          notes: input.notes,
-          submittedBy: input.submittedBy,
-          source: "ui",
-        })
-        // Re-scoring someone updates their result rather than duplicating it.
-        // The overwrite is recorded in the changelog and can be rolled back.
-        .onConflictDoUpdate({
-          target: [results.eventId, results.athleteId],
-          set: {
-            rawValue: sql`excluded.raw_value`,
-            points: sql`excluded.points`,
-            notes: sql`excluded.notes`,
-            submittedBy: sql`excluded.submitted_by`,
-            source: sql`excluded.source`,
-          },
-        })
-        .returning();
+        let athlete: { id: string; name: string } | undefined;
+        if (change.athleteId) {
+          [athlete] = await tx.select().from(athletes).where(eq(athletes.id, change.athleteId)).limit(1);
+          if (!athlete) throw new Error(`${change.athleteName} is no longer on the roster. Reload the page and try again.`);
+        } else {
+          athlete = await findOrCreateAthlete(tx, change.athleteName);
+        }
+        athleteByKey.set(key, athlete);
+        return athlete;
+      };
 
-      return { athleteName: athlete.name, eventName: event.name, points: saved.points };
+      let saved = 0;
+
+      for (const change of changes) {
+        const event = eventById.get(change.eventId);
+        if (!event) throw new Error("An event in this grid no longer exists. Reload the page and try again.");
+
+        if (!isScorable(event)) throw new Error(`${event.name} has no scoring scale set yet.`);
+        const athlete = await resolveAthlete(change);
+
+        await tx
+          .insert(results)
+          .values({
+            eventId: event.id,
+            athleteId: athlete.id,
+            rawValue: change.value,
+            points: scoreResult(change.value, event),
+            submittedBy,
+            source: "ui",
+          })
+          .onConflictDoUpdate({
+            target: [results.eventId, results.athleteId],
+            set: {
+              rawValue: sql`excluded.raw_value`,
+              points: sql`excluded.points`,
+              submittedBy: sql`excluded.submitted_by`,
+              source: sql`excluded.source`,
+            },
+          });
+        saved += 1;
+      }
+
+      return { saved };
+    });
+
+    revalidateScoreboard();
+    return ok(`Saved ${outcome.saved} score${outcome.saved === 1 ? "" : "s"}.`, outcome);
+  } catch (error) {
+    return fail(describeError(error));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Deleting scores from the grid
+// ---------------------------------------------------------------------------
+
+const gridDeleteSchema = z.object({
+  submittedBy: z.string().trim().max(80).default(""),
+  cells: z
+    .array(z.object({ athleteId: z.string().uuid(), eventId: z.string().uuid() }))
+    .min(1, "There is nothing to delete.")
+    .max(2000, "That is too many deletions at once."),
+});
+
+/**
+ * Delete the scores in the emptied cells of the grid, all together or not at all.
+ *
+ * This is a separate action from `submitGrid` on purpose. Saving scores can add
+ * or replace but has no way to remove anything, whatever a browser sends it, so
+ * the everyday path cannot lose a score by accident. Deleting only happens here,
+ * from the grid's delete mode.
+ *
+ * Nothing is lost for good: the delete trigger records the whole row in the
+ * change history, and "Undo" there puts it back. A score that is already gone
+ * (someone else deleted it first) is simply skipped.
+ */
+export async function deleteScores(input: GridDeletion): Promise<ActionResult<{ deleted: number }>> {
+  const parsed = gridDeleteSchema.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the grid and try again.");
+  const { cells, submittedBy } = parsed.data;
+
+  try {
+    const outcome = await withActor({ actor: submittedBy || "anonymous" }, async (tx) => {
+      let deleted = 0;
+      for (const cell of cells) {
+        const gone = await tx
+          .delete(results)
+          .where(and(eq(results.eventId, cell.eventId), eq(results.athleteId, cell.athleteId)))
+          .returning({ id: results.id });
+        deleted += gone.length;
+      }
+      return { deleted };
     });
 
     revalidateScoreboard();
     return ok(
-      `${outcome.athleteName} scored ${outcome.points} points in ${outcome.eventName}.`,
+      outcome.deleted === 0
+        ? "Those scores were already gone."
+        : `Deleted ${outcome.deleted} score${outcome.deleted === 1 ? "" : "s"}. They can be brought back from Change History.`,
+      outcome,
     );
   } catch (error) {
     return fail(describeError(error));
