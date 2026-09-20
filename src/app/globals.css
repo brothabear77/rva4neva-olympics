@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Palette. Five colors, used consistently:
+     ink     #14110f  page background, the darkest thing on screen
+     surface #34312d  cards and raised panels
+     muted   #7e7f83  secondary text, borders, dividers
+     paper   #f3f3f4  primary text
+     accent  #dcedff  the one highlight color: links, active tab, leaders
+--------------------------------------------------------------------------- */
+@theme {
+  --color-ink: #14110f;
+  --color-surface: #34312d;
+  --color-muted: #7e7f83;
+  --color-paper: #f3f3f4;
+  --color-accent: #dcedff;
+
+  --font-display: var(--font-oswald), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Hairlines and fills derived from the palette, so every shade on screen
+   traces back to one of the five colors. */
+@layer base {
+  :root {
+    --edge: color-mix(in oklab, var(--color-muted) 34%, transparent);
+    --edge-strong: color-mix(in oklab, var(--color-muted) 60%, transparent);
+    --raise: color-mix(in oklab, var(--color-surface) 55%, var(--color-ink));
+  }
+
+  html {
+    background-color: var(--color-ink);
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-ink);
+    color: var(--color-paper);
+  }
+
+  /* Scores and times line up in columns. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: var(--color-ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .card {
+    background-color: var(--raise);
+    border: 1px solid var(--edge);
+    border-radius: 0.75rem;
+  }
+
+  .eyebrow {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--color-muted);
+  }
+
+  /* Primary action. Accent is a pale blue, so text on it must be ink. */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 1.125rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    background-color: var(--color-accent);
+    color: var(--color-ink);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  .btn:hover:not(:disabled) { opacity: 0.85; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--color-paper);
+    border-color: var(--edge-strong);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background-color: color-mix(in oklab, var(--color-surface) 70%, transparent);
+    opacity: 1;
+  }
+
+  .field {
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    background-color: var(--color-ink);
+    border: 1px solid var(--edge-strong);
+    color: var(--color-paper);
+    font-size: 1rem; /* 16px keeps iOS from zooming on focus */
+  }
+  .field::placeholder { color: color-mix(in oklab, var(--color-muted) 80%, transparent); }
+  .field:focus { border-color: var(--color-accent); outline: none; }
+
+  .label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-paper);
+    margin-bottom: 0.375rem;
+  }
+}
