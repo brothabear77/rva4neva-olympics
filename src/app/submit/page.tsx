@@ -1,17 +1,19 @@
 import Link from "next/link";
+import { RosterEditor } from "@/components/RosterEditor";
 import { SubmitPanels } from "@/components/SubmitPanels";
 import { PageHeader } from "@/components/ui";
-import { getAthletes, getEventsForForm, getResultValues } from "@/lib/queries";
+import { getAthletes, getEventsForForm, getResultValues, getRoster } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Submit Results" };
 
 export default async function SubmitPage() {
-  const [events, athletes, results] = await Promise.all([
+  const [events, athletes, results, roster] = await Promise.all([
     getEventsForForm(),
     getAthletes(),
     getResultValues(),
+    getRoster(),
   ]);
 
   return (
@@ -28,6 +30,8 @@ export default async function SubmitPage() {
       />
 
       <SubmitPanels events={events} athletes={athletes} results={results} />
+
+      <RosterEditor roster={roster} />
     </>
   );
 }

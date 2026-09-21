@@ -29,9 +29,14 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
         title={event.name}
         description={event.description || undefined}
         actions={
-          <Link href="/submit" className="btn">
-            Submit a score
-          </Link>
+          <>
+            <Link href={`/info/events?event=${event.slug}`} className="btn btn-ghost">
+              Rules &amp; demo
+            </Link>
+            <Link href="/submit" className="btn">
+              Submit a score
+            </Link>
+          </>
         }
       />
 

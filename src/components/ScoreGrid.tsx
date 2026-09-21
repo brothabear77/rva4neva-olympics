@@ -45,7 +45,8 @@ const FILL_ACTIVE = "bg-[color-mix(in_oklab,var(--color-accent)_12%,var(--raise)
 /**
  * A scoresheet: one column per event across the top, one row per athlete down
  * the side, a cell for each pairing. A toggle switches it between two jobs, and
- * each job is deliberately one-directional.
+ * each job is deliberately one-directional. Who is on the roster is managed
+ * separately, in the roster editor below the grid.
  *
  * ADD mode. Every cell starts empty. A score that is already stored shows as a
  * gray placeholder (with its points underneath). Type in a cell to add or replace
@@ -77,13 +78,9 @@ export function ScoreGrid({
   const [scorekeeper, setScorekeeper] = useScorekeeperName();
   const [mode, setMode] = useState<Mode>("add");
   const [edits, setEdits] = useState<Record<string, string>>({});
-  const [added, setAdded] = useState<string[]>([]);
-  const [newName, setNewName] = useState("");
-  const [addError, setAddError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
-  const [focusRow, setFocusRow] = useState<number | null>(null);
-  // The cell with focus, by row and event id, so its headings can light up.
-  const [active, setActive] = useState<{ row: string; event: string } | null>(null);
+  // The cell with focus, by athlete and event id, so its headings can light up.
+  const [active, setActive] = useState<{ athlete: string; event: string } | null>(null);
   const [saved, setSaved] = useState<Saved>(null);
   const [saving, startSaving] = useTransition();
   const tableRef = useRef<HTMLTableElement>(null);
@@ -95,17 +92,7 @@ export function ScoreGrid({
     [results],
   );
 
-  // Athletes typed into the grid stay as unsaved rows until the server reports
-  // them on the roster, then the real row takes over.
-  const rows: GridRow[] = useMemo(() => {
-    const known = new Set(athletes.map((a) => a.name.toLowerCase()));
-    return [
-      ...athletes.map((a) => ({ key: a.id, athleteId: a.id, name: a.name })),
-      ...added
-        .filter((name) => !known.has(name.toLowerCase()))
-        .map((name) => ({ key: `new:${name.toLowerCase()}`, athleteId: null, name })),
-    ];
-  }, [athletes, added]);
+  const rows: GridRow[] = useMemo(() => athletes.map((a) => ({ athleteId: a.id, name: a.name })), [athletes]);
 
   const eventIds = useMemo(() => events.map((e) => e.id), [events]);
   const addDiff = useMemo(
@@ -123,33 +110,21 @@ export function ScoreGrid({
   const invalid = invalidKeys.size;
   const canSave = pending > 0 && invalid === 0 && !saving;
   // Anything worth losing if the mode flipped now.
-  const hasUnsaved = pending > 0 || invalid > 0 || added.length > 0;
-
-  // Put the cursor in a freshly added row once it exists.
-  useEffect(() => {
-    if (focusRow === null) return;
-    tableRef.current?.querySelector<HTMLInputElement>(`[data-r="${focusRow}"][data-c="0"]`)?.focus();
-    setFocusRow(null);
-  }, [focusRow, rows.length]);
+  const hasUnsaved = pending > 0 || invalid > 0;
 
   // Reset the typed text only once the server's refreshed scores reflect what was
-  // just saved. A brand-new athlete has no id until then, so match them by name.
+  // just saved.
   useEffect(() => {
     if (!saved) return;
     const reflected =
       saved.kind === "delete"
         ? saved.cells.every((cell) => !original.has(cellKey(cell.athleteId, cell.eventId)))
-        : saved.changes.every((change) => {
-            const athleteId =
-              change.athleteId ??
-              athletes.find((a) => a.name.toLowerCase() === change.athleteName.toLowerCase())?.id;
-            return athleteId !== undefined && original.get(cellKey(athleteId, change.eventId)) === change.value;
-          });
+        : saved.changes.every((change) => original.get(cellKey(change.athleteId, change.eventId)) === change.value);
     if (reflected) {
       setEdits({});
       setSaved(null);
     }
-  }, [saved, original, athletes]);
+  }, [saved, original]);
 
   const switchMode = (next: Mode) => {
     // Locked while there is unsaved work, so a save is only ever one kind of change.
@@ -158,8 +133,6 @@ export function ScoreGrid({
     setEdits({});
     setSaved(null);
     setMessage(null);
-    setAddError(null);
-    setNewName("");
     setActive(null);
   };
 
@@ -170,25 +143,6 @@ export function ScoreGrid({
     if (!isPartialNumber(text)) return;
     setEdits((prev) => ({ ...prev, [key]: text }));
     setMessage(null);
-  };
-
-  const addAthlete = () => {
-    const name = newName.replace(/\s+/g, " ").trim();
-    if (!name) return;
-    if (name.length > 80) return setAddError("That name is too long.");
-    if (rows.some((r) => r.name.toLowerCase() === name.toLowerCase())) {
-      return setAddError(`${name} is already in the grid.`);
-    }
-    setAdded((prev) => [...prev, name]);
-    setNewName("");
-    setAddError(null);
-    setFocusRow(rows.length);
-  };
-
-  const removeAdded = (name: string) => {
-    const prefix = `new:${name.toLowerCase()}|`;
-    setAdded((prev) => prev.filter((n) => n !== name));
-    setEdits((prev) => Object.fromEntries(Object.entries(prev).filter(([key]) => !key.startsWith(prefix))));
   };
 
   // --- delete mode ----------------------------------------------------------
@@ -221,8 +175,6 @@ export function ScoreGrid({
   const discard = () => {
     setSaved(null);
     setEdits({});
-    setAdded([]);
-    setAddError(null);
     setMessage(null);
   };
 
@@ -341,41 +293,28 @@ export function ScoreGrid({
 
           <tbody>
             {rows.map((row, r) => (
-              <tr key={row.key}>
+              <tr key={row.athleteId}>
                 <th
                   scope="row"
                   className={[
                     "sticky left-0 z-10 border-b border-[var(--edge)] px-3 py-1 text-left transition-colors duration-150",
-                    active?.row === row.key ? `${FILL_ACTIVE} shadow-[inset_-2px_0_0_var(--color-accent)]` : FILL,
+                    active?.athlete === row.athleteId
+                      ? `${FILL_ACTIVE} shadow-[inset_-2px_0_0_var(--color-accent)]`
+                      : FILL,
                   ].join(" ")}
                 >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className={[
-                        "font-display text-sm font-semibold uppercase tracking-wide transition-colors duration-150",
-                        active?.row === row.key ? "text-accent" : "text-paper",
-                      ].join(" ")}
-                    >
-                      {row.name}
-                    </span>
-                    {row.athleteId === null ? (
-                      <>
-                        <span className="eyebrow">new</span>
-                        <button
-                          type="button"
-                          onClick={() => removeAdded(row.name)}
-                          aria-label={`Remove ${row.name} from the grid`}
-                          className="ml-auto text-muted hover:text-paper"
-                        >
-                          &times;
-                        </button>
-                      </>
-                    ) : null}
+                  <span
+                    className={[
+                      "font-display text-sm font-semibold uppercase tracking-wide transition-colors duration-150",
+                      active?.athlete === row.athleteId ? "text-accent" : "text-paper",
+                    ].join(" ")}
+                  >
+                    {row.name}
                   </span>
                 </th>
 
                 {events.map((event, c) => {
-                  const key = cellKey(row.key, event.id);
+                  const key = cellKey(row.athleteId, event.id);
                   const stored = original.get(key);
                   const hasScore = stored !== undefined;
                   const changed = changedKeys.has(key);
@@ -403,7 +342,7 @@ export function ScoreGrid({
                         onKeyDown={(e) => onCellKeyDown(e, r, c)}
                         onFocus={(e) => {
                           e.currentTarget.select();
-                          setActive({ row: row.key, event: event.id });
+                          setActive({ athlete: row.athleteId, event: event.id });
                         }}
                         // Moving to another cell in the grid keeps the highlight
                         // rolling; leaving the grid (Save, the name box...) clears it.
@@ -468,53 +407,18 @@ export function ScoreGrid({
         </table>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        {/* Adding a row only makes sense when adding scores. */}
-        {!deleting ? (
-          <div>
-            <label className="label" htmlFor="newAthlete">
-              Add an athlete
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="newAthlete"
-                value={newName}
-                onChange={(e) => {
-                  setNewName(e.target.value);
-                  setAddError(null);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addAthlete();
-                  }
-                }}
-                maxLength={80}
-                autoComplete="off"
-                placeholder="Someone not in the grid yet"
-                className="field"
-              />
-              <button type="button" onClick={addAthlete} className="btn btn-ghost shrink-0">
-                Add
-              </button>
-            </div>
-            {addError ? <p className="mt-1.5 text-xs text-paper">{addError}</p> : null}
-          </div>
-        ) : null}
-
-        <div>
-          <label className="label" htmlFor="gridBy">
-            Your name
-          </label>
-          <input
-            id="gridBy"
-            value={scorekeeper}
-            onChange={(e) => setScorekeeper(e.target.value)}
-            maxLength={80}
-            placeholder="Recorded in the change history"
-            className="field"
-          />
-        </div>
+      <div className="max-w-md">
+        <label className="label" htmlFor="gridBy">
+          Your name
+        </label>
+        <input
+          id="gridBy"
+          value={scorekeeper}
+          onChange={(e) => setScorekeeper(e.target.value)}
+          maxLength={80}
+          placeholder="Recorded in the change history"
+          className="field"
+        />
       </div>
 
       {message ? <Banner tone={message.tone}>{message.text}</Banner> : null}

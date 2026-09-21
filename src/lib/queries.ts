@@ -197,6 +197,16 @@ export async function getResultValues() {
     .from(results);
 }
 
+/** The roster with how many scores each athlete has, for the roster editor. */
+export async function getRoster() {
+  return db
+    .select({ id: athletes.id, name: athletes.name, scores: sql<number>`count(${results.id})::int` })
+    .from(athletes)
+    .leftJoin(results, eq(results.athleteId, athletes.id))
+    .groupBy(athletes.id)
+    .orderBy(asc(athletes.name));
+}
+
 export async function getAthletes() {
   return db.select().from(athletes).orderBy(asc(athletes.name));
 }
@@ -248,12 +258,27 @@ export async function getChangeLog(limit = 100, before?: number): Promise<Change
   const eventNames = new Map(eventList.map((e) => [e.id, e.name]));
   const athleteNames = new Map(athleteList.map((a) => [a.id, a.name]));
 
+  // Names of athletes who have since been deleted, from their own history. Without
+  // this a removed score would read "Unknown athlete", and there would be no telling
+  // whose it was when deciding what to bring back.
+  const athleteHistory = await db
+    .select({ recordId: changeLog.recordId, oldRow: changeLog.oldRow, newRow: changeLog.newRow })
+    .from(changeLog)
+    .where(eq(changeLog.tableName, "athletes"))
+    .orderBy(asc(changeLog.id));
+  const knownNames = new Map<string, string>();
+  for (const h of athleteHistory) {
+    const named = (h.newRow ?? h.oldRow) as { name?: unknown } | null;
+    if (h.recordId && typeof named?.name === "string") knownNames.set(h.recordId, named.name);
+  }
+  for (const [id, name] of athleteNames) knownNames.set(id, name); // the current spelling wins
+
   return rows.map((row) => {
     const state = (row.newRow ?? row.oldRow) as Record<string, unknown> | null;
     let label = row.tableName;
 
     if (row.tableName === "results" && state) {
-      const athlete = athleteNames.get(String(state.athlete_id)) ?? "Unknown athlete";
+      const athlete = knownNames.get(String(state.athlete_id)) ?? "Unknown athlete";
       const event = eventNames.get(String(state.event_id)) ?? "Unknown event";
       label = `${athlete} — ${event}`;
     } else if (state && typeof state.name === "string") {
@@ -270,6 +295,17 @@ export async function getChangeLog(limit = 100, before?: number): Promise<Change
       if (event && Number.isFinite(raw)) {
         restoreTo = `${formatMeasurement(raw, event.decimals)}${event.unitLabel ? ` ${event.unitLabel}` : ""}`;
       }
+    }
+
+    if (row.tableName === "athletes" && restoreSource && typeof restoreSource.name === "string") {
+      // Offer Undo only when it would change something.
+      const now = athleteNames.get(row.recordId ?? "");
+      const wanted = restoreSource.name;
+      const useful =
+        row.operation === "DELETE"
+          ? now === undefined // still deleted; bringing them back also brings back their scores
+          : now !== undefined && now !== wanted; // renamed since; put the name back
+      if (useful) restoreTo = wanted;
     }
 
     return {

@@ -27,9 +27,33 @@ export function hasStarted(now: number = Date.now()): boolean {
   return now >= new Date(SITE.startsAt).getTime();
 }
 
-export const NAV = [
+export interface NavLink {
+  href: string;
+  label: string;
+}
+
+/** A tab that opens a small menu of pages instead of going somewhere itself. */
+export interface NavMenu {
+  label: string;
+  items: readonly NavLink[];
+}
+
+export type NavItem = NavLink | NavMenu;
+
+export const NAV: readonly NavItem[] = [
   { href: "/", label: "Home" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/events", label: "Events" },
+  {
+    label: "Info",
+    items: [
+      { href: "/info/athletes", label: "Athletes" },
+      { href: "/info/events", label: "Events" },
+    ],
+  },
   { href: "/submit", label: "Submit Results" },
-] as const;
+];
+
+export function isNavMenu(item: NavItem): item is NavMenu {
+  return "items" in item;
+}

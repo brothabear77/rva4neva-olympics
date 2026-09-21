@@ -61,9 +61,8 @@ describe("parseCell", () => {
 
 describe("collectChanges", () => {
   const rows: GridRow[] = [
-    { key: "a1", athleteId: "a1", name: "Nick" },
-    { key: "a2", athleteId: "a2", name: "Dana" },
-    { key: "new:zed", athleteId: null, name: "Zed" },
+    { athleteId: "a1", name: "Nick" },
+    { athleteId: "a2", name: "Dana" },
   ];
   const events = ["e1", "e2"];
   const original = new Map([
@@ -132,15 +131,6 @@ describe("collectChanges", () => {
     expect([...invalidKeys]).toEqual([cellKey("a1", "e2")]);
   });
 
-  it("saves scores for an athlete added in the grid, with no id yet", () => {
-    const { changes } = diff({ [cellKey("new:zed", "e1")]: "6.1" });
-    expect(changes).toEqual([{ athleteId: null, athleteName: "Zed", eventId: "e1", value: 6.1 }]);
-  });
-
-  it("ignores an unsaved row left blank", () => {
-    expect(diff({ [cellKey("new:zed", "e1")]: "" }).changes).toEqual([]);
-  });
-
   it("reports several changes in row order", () => {
     const { changes } = diff({
       [cellKey("a2", "e1")]: "9",
@@ -156,9 +146,8 @@ describe("collectChanges", () => {
 
 describe("collectDeletions — delete mode", () => {
   const rows: GridRow[] = [
-    { key: "a1", athleteId: "a1", name: "Nick" },
-    { key: "a2", athleteId: "a2", name: "Dana" },
-    { key: "new:zed", athleteId: null, name: "Zed" },
+    { athleteId: "a1", name: "Nick" },
+    { athleteId: "a2", name: "Dana" },
   ];
   const events = ["e1", "e2"];
   const original = new Map([
@@ -188,10 +177,6 @@ describe("collectDeletions — delete mode", () => {
   it("keeps a score whose text is still there", () => {
     expect(del({ [cellKey("a1", "e1")]: "5.42" }).cells).toEqual([]);
     expect(del({ [cellKey("a1", "e1")]: "9" }).cells).toEqual([]);
-  });
-
-  it("never touches an unsaved athlete row", () => {
-    expect(del({ [cellKey("new:zed", "e1")]: "" }).cells).toEqual([]);
   });
 
   it("ignores edits for rows and events that are no longer shown", () => {

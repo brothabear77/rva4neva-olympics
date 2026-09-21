@@ -82,8 +82,6 @@ with its points underneath, so it still reads as the state of the competition.
 - Enter or the arrow keys move up and down a column.
 - The focused cell's event heading and athlete name light up, so you can always
   see which pairing you are typing into.
-- **Add an athlete** puts a new row at the bottom. They join the roster when you
-  save a score for them.
 - Only cells you typed a different number into are sent, and they are saved
   together in one transaction: all of them or none. Retyping the value a cell
   already has changes nothing. Numbers are rounded to 4 decimal places, which is
@@ -111,7 +109,64 @@ with its points underneath, so it still reads as the state of the competition.
   and its **Undo** button puts it back.
 
 The rows and columns come from the database, so it is 10 x 10 with ten events and
-ten athletes and grows a row per athlete added.
+ten athletes and grows a row per athlete on the roster.
+
+### The roster
+
+Who is in the grid is managed in the **Roster** section at the bottom of the Submit
+page. It is the one place to add, rename or remove an athlete; the grid only shows
+this list.
+
+- **Add** an athlete by name. Names are unique ignoring case, so "nick" is refused
+  when "Nick" exists, and the message says whose name it is.
+- **Rename** with the Rename link. Changing only the capitalisation is fine.
+- **Delete** asks first and says how many scores go with the athlete ("Delete Casey
+  and their 3 scores?"), because a score belongs to a person.
+- Every change is recorded in Change History. **Undo** there renames someone back, or
+  brings a deleted athlete back **together with every score deleted with them**. A
+  removed score still reads "Casey — Keg Toss" in the history, not "Unknown athlete".
+- Bios and photos on the Athletes page are matched by name, so a rename may mean
+  updating that entry too.
+- CSV import still adds anyone it does not recognise, and says so in its preview.
+
+## Info: athletes and the event guide
+
+The **Info** tab is a menu with two pages. Both work with nothing written; you fill
+them in later by editing a file, the same way as the countdown quotes.
+
+**Info -> Athletes** lists everyone on the roster, one row each, with their photo,
+tagline, bio and where they stand. Edit `src/content/athletes.ts`:
+
+```ts
+{ name: "Nick", photo: "/athletes/nick.jpg", tagline: "Perennial runner-up", bio: "..." },
+```
+
+Every field except `name` is optional. Put photos in `public/athletes/`. Someone with
+no entry still gets a row, with their initials in place of a photo.
+
+**Info -> Events** is a guide with a tab per event: what it is, how it's scored, and a
+demonstration. The scoring section writes itself from the event's two benchmarks (what
+a mark is worth, plus a small table of example marks) and the description falls back
+to the event's own. To add rules and a demo, edit `src/content/events.ts`:
+
+```ts
+{
+  slug: "40-yard-dash",
+  rules: ["Two attempts, fastest counts."],
+  media: { src: "/events/40-yard-dash.mp4" },   // or a .gif or .jpg,
+  // media: { youtube: "https://youtu.be/dQw4w9WgXcQ" },          or a YouTube link
+}
+```
+
+Put files in `public/events/`. A `src` is a photo, GIF or video according to its file
+ending. A YouTube clip loads nothing from YouTube until someone presses play.
+`/info/events?event=keg-toss` opens straight onto one event's tab.
+
+Names and slugs are matched ignoring case. While you run the site locally, a notice
+appears if an entry matches nobody, a link can't be read as YouTube, or a file isn't
+where you said it is, so a typo doesn't just make something silently not show.
+
+The competitive **Events** tab (standings, leaders) and this guide link to each other.
 
 ## CSV format
 
@@ -164,6 +219,8 @@ src/lib/schema.ts      Drizzle schema for the app and audit schemas
 src/lib/queries.ts     read models for the pages
 src/lib/actions.ts     every write, each wrapped in withActor()
 src/lib/csv.ts         parsing and import preview — pure, unit-tested
+src/lib/profiles.ts    Info pages: matching content to the roster, media and YouTube links
+src/content/athletes.ts, events.ts   the files you edit for the Info pages
 src/lib/grid.ts        what a typed cell means and which cells changed — pure, unit-tested
 src/lib/quotes.ts      tidies the quotes and sets how long each stays up
 src/content/quotes.ts  the quotes themselves — the file you edit

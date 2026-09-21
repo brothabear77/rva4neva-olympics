@@ -45,19 +45,17 @@ export function parseCell(text: string): CellValue {
   return { kind: "number", value };
 }
 
-/** A row is an athlete already on the roster, or one added in the grid and not yet saved. */
+/** A row of the grid: one athlete on the roster. (Athletes are added from the roster editor.) */
 export interface GridRow {
-  /** The athlete's id, or `new:<lowercased name>` for a row not saved yet. */
-  key: string;
-  athleteId: string | null;
+  athleteId: string;
   name: string;
 }
 
-export const cellKey = (rowKey: string, eventId: string) => `${rowKey}|${eventId}`;
+export const cellKey = (athleteId: string, eventId: string) => `${athleteId}|${eventId}`;
 
 /** One score to write. The grid only ever adds or replaces; it never removes. */
 export interface GridChange {
-  athleteId: string | null;
+  athleteId: string;
   athleteName: string;
   eventId: string;
   value: number;
@@ -100,7 +98,7 @@ export function collectChanges(
 
   for (const row of rows) {
     for (const eventId of eventIds) {
-      const key = cellKey(row.key, eventId);
+      const key = cellKey(row.athleteId, eventId);
       if (!(key in edits)) continue;
 
       const cell = parseCell(edits[key]);
@@ -140,9 +138,8 @@ export interface DeleteDiff {
  *
  * In this mode the grid is filled with what is stored, and the only thing that
  * counts is a cell that held a score and is now empty. Anything else is not a
- * deletion: an empty cell that never held a score has nothing to delete, an
- * unsaved athlete row has no scores at all, and text left in a cell is a score
- * that stays. This is the mirror of `collectChanges`, which never deletes.
+ * deletion: an empty cell that never held a score has nothing to delete, and
+ * text left in a cell is a score that stays. This is the mirror of `collectChanges`, which never deletes.
  */
 export function collectDeletions(
   rows: readonly GridRow[],
@@ -154,10 +151,8 @@ export function collectDeletions(
   const changedKeys = new Set<string>();
 
   for (const row of rows) {
-    if (row.athleteId === null) continue;
-
     for (const eventId of eventIds) {
-      const key = cellKey(row.key, eventId);
+      const key = cellKey(row.athleteId, eventId);
       if (!(key in edits) || !original.has(key)) continue;
       if (parseCell(edits[key]).kind !== "empty") continue;
 
