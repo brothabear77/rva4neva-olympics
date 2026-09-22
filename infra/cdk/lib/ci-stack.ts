@@ -4,8 +4,14 @@ import type { Construct } from "constructs";
 import { REPOSITORY_NAME } from "./olympics-stack";
 
 export interface CiStackProps extends cdk.StackProps {
-  /** owner/repo on GitHub, e.g. "brothabear77/rva4neva-olympics". */
-  githubRepo: string;
+  /** GitHub login of the repository owner, e.g. "brothabear77". */
+  githubOwner: string;
+  /** That account's numeric, permanent GitHub user id. See the comment below for why. */
+  githubOwnerId: string;
+  /** Repository name only, e.g. "rva4neva-olympics" (no owner prefix). */
+  githubRepoName: string;
+  /** That repository's numeric, permanent GitHub id. See the comment below for why. */
+  githubRepoId: string;
   /** Only this branch may assume the role. A push to any other ref is refused. */
   branch: string;
 }
@@ -34,15 +40,30 @@ export class CiStack extends cdk.Stack {
       `arn:aws:iam::${cdk.Stack.of(this).account}:oidc-provider/token.actions.githubusercontent.com`,
     );
 
+    // This account (or org) has GitHub's "immutable OIDC subject claims" enabled, which
+    // adds the owner's and repository's permanent numeric ids to the `sub` claim:
+    //
+    //   repo:brothabear77@297315939/rva4neva-olympics@1377670854:ref:refs/heads/main
+    //
+    // instead of the plain repo:owner/name:ref:... form the AWS and GitHub docs lead
+    // with. It exists so a deleted-then-recreated repo, or a renamed account, can never
+    // inherit another workflow's trust — the ids never change or get reused, unlike
+    // names. Confirmed against this account by reading a failed AssumeRoleWithWebIdentity
+    // call in CloudTrail (a first version of this policy, matching only on names, was
+    // refused with AccessDenied) and cross-checked with `gh api user` and
+    // `gh api repos/<owner>/<repo>`. This is also why the account's other GitHub role,
+    // github-lambda-deploy, resorts to a wildcarded StringLike rather than an exact
+    // match — it predates this being worked out. Using the real ids here keeps the
+    // exact-match property that wildcard gives up.
+    const subject = `repo:${props.githubOwner}@${props.githubOwnerId}/${props.githubRepoName}@${props.githubRepoId}:ref:refs/heads/${props.branch}`;
+
     const role = new iam.Role(this, "DeployRole", {
       roleName: "rva4neva-olympics-github-deploy",
       description: "Assumed by GitHub Actions to deploy rva4neva-olympics. Scoped to one repo and branch.",
       assumedBy: new iam.WebIdentityPrincipal(provider.openIdConnectProviderArn, {
-        // Both conditions are StringEquals, not StringLike with a wildcard: only this
-        // branch, in this one repository, can ever assume this role.
         StringEquals: {
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-          "token.actions.githubusercontent.com:sub": `repo:${props.githubRepo}:ref:refs/heads/${props.branch}`,
+          "token.actions.githubusercontent.com:sub": subject,
         },
       }),
       maxSessionDuration: cdk.Duration.hours(1),

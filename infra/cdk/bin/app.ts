@@ -30,6 +30,17 @@ new SiteStack(app, "OlympicsSite", { env, imageTag, adminIp });
 
 // Deployed by hand, once: `npx cdk deploy OlympicsCi`. Not part of the app's own deploy
 // script — CI cannot create the role it needs in order to run itself.
-new CiStack(app, "OlympicsCi", { env, githubRepo: "brothabear77/rva4neva-olympics", branch: "main" });
+//
+// The owner and repo ids are GitHub's permanent numeric ids (`gh api user --jq .id` and
+// `gh api repos/brothabear77/rva4neva-olympics --jq .id`), not the account number or
+// anything AWS-side. See the comment in ci-stack.ts for why the trust policy needs them.
+new CiStack(app, "OlympicsCi", {
+  env,
+  githubOwner: "brothabear77",
+  githubOwnerId: "297315939",
+  githubRepoName: "rva4neva-olympics",
+  githubRepoId: "1377670854",
+  branch: "main",
+});
 
 cdk.Tags.of(app).add("project", "rva4neva-olympics");
