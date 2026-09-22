@@ -64,6 +64,48 @@ reload them on purpose (this resets event names, descriptions and benchmarks to 
 `scripts/seed.ts`, and adds back any seed athlete removed from the roster), pass `--seed`.
 `--with-results` also loads the sample scores; that is for a demo, never the real event.
 
+## Deploying from GitHub
+
+A push to `main` deploys automatically — `.github/workflows/deploy.yml` runs the tests, then
+`npm run deploy -- --ci`, the same script you'd run by hand. `dev` is where you work; merging
+to `main` ships.
+
+**Identity, not keys.** The workflow authenticates as `rva4neva-olympics-github-deploy`
+(`infra/cdk/lib/ci-stack.ts`), an IAM role assumed over OIDC. No AWS key lives in GitHub.
+The role's trust policy checks the token GitHub mints for the job against one exact string —
+`repo:brothabear77/rva4neva-olympics:ref:refs/heads/main` — so a workflow run for a pull
+request, a fork, or any other branch is refused before it can call AWS at all.
+
+**The one thing `--ci` changes: where the admin IP comes from.** A laptop deploy detects your
+machine's address and saves it to SSM (`/rva4neva-olympics/admin-ip`); a CI deploy reads that
+saved value back instead of detecting its own. Without this, every CI deploy would swap your
+home address for the runner's — a different, unreachable one each time — and you'd lose
+`psql` and `npm run aws:db` access until your next laptop deploy overwrote it again.
+Practically: **the admin IP only ever changes from your laptop.** A CI-only deploy never
+touches the database's security group rule.
+
+**Migrations stay manual.** `npm run aws:db` connects straight to Aurora, and the database
+only admits the app's security group and that one admin IP — a GitHub runner is neither, and
+opening the firewall to GitHub's address ranges would undo the point of having one. So when a
+change adds a migration, run `npm run aws:db` from your laptop **before** merging it. This
+project's migrations are additive, so the old code running against the new schema for a few
+minutes is harmless; new code running against a schema that hasn't been migrated yet is not.
+
+**Setup, done once:**
+
+```bash
+cd infra/cdk && npx cdk deploy OlympicsCi
+```
+
+Creates the role above. CI cannot create the role it needs in order to run, so this one stack
+is always deployed by hand.
+
+**If a CI deploy fails**, the same log locations and failure modes apply as any other deploy —
+see *When a deploy fails*, below. One CI-specific case: if `/rva4neva-olympics/admin-ip` was
+ever deleted (via `npm run deploy -- --no-admin-ip`) without a later laptop deploy restoring
+it, CI reports "nothing saved" and deploys with the database reachable from the app only —
+not a failure, just worth noticing in the log if you expected laptop access to still work.
+
 ## What the database allows
 
 The database security group admits exactly two sources on port 5432: the app, and one admin IP
@@ -227,5 +269,5 @@ aws secretsmanager delete-secret --secret-id rva4neva/app-database-url --force-d
 
 - **A custom domain.** App Runner can attach one, with a managed certificate, without rebuilding
   anything here.
-- **Deploys from GitHub.** A small addition later: an OIDC role so GitHub can push to ECR without
-  stored keys, and a workflow that runs the same scripts.
+- **Branch protection requiring the `test` job to pass before a merge.** That's a GitHub
+  repository setting, not a file here.

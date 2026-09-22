@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import * as cdk from "aws-cdk-lib";
+import { CiStack } from "../lib/ci-stack";
 import { RegistryStack, SiteStack } from "../lib/olympics-stack";
 
 const app = new cdk.App();
@@ -26,5 +27,9 @@ const imageTag: string = app.node.tryGetContext("imageTag") || "latest";
 
 new RegistryStack(app, "OlympicsRegistry", { env });
 new SiteStack(app, "OlympicsSite", { env, imageTag, adminIp });
+
+// Deployed by hand, once: `npx cdk deploy OlympicsCi`. Not part of the app's own deploy
+// script — CI cannot create the role it needs in order to run itself.
+new CiStack(app, "OlympicsCi", { env, githubRepo: "brothabear77/rva4neva-olympics", branch: "main" });
 
 cdk.Tags.of(app).add("project", "rva4neva-olympics");

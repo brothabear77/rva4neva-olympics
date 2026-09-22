@@ -121,6 +121,34 @@ export function stackStatus(context: AwsContext, stack: string): string | undefi
   }
 }
 
+/** An SSM parameter's value, or undefined if it does not exist. */
+export function getSsmParameter(context: AwsContext, name: string): string | undefined {
+  try {
+    return capture("aws", ["ssm", "get-parameter", "--name", name, "--query", "Parameter.Value", "--output", "text"], {
+      env: context.env,
+    });
+  } catch (error) {
+    if (/ParameterNotFound/.test(messageOf(error))) return undefined;
+    throw error;
+  }
+}
+
+/** Write an SSM parameter as a plain String, creating or overwriting it. */
+export function putSsmParameter(context: AwsContext, name: string, value: string) {
+  capture("aws", ["ssm", "put-parameter", "--name", name, "--type", "String", "--value", value, "--overwrite"], {
+    env: context.env,
+  });
+}
+
+/** Remove an SSM parameter. Not an error if it is already gone. */
+export function deleteSsmParameter(context: AwsContext, name: string) {
+  try {
+    capture("aws", ["ssm", "delete-parameter", "--name", name], { env: context.env });
+  } catch (error) {
+    if (!/ParameterNotFound/.test(messageOf(error))) throw error;
+  }
+}
+
 export function flag(name: string): boolean {
   return process.argv.includes(`--${name}`);
 }

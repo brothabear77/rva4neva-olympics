@@ -10,10 +10,13 @@ import {
   awsContext,
   awsJson,
   capture,
+  deleteSsmParameter,
   fail,
   flag,
+  getSsmParameter,
   messageOf,
   option,
+  putSsmParameter,
   run,
   stackStatus,
   step,
@@ -29,17 +32,29 @@ import {
  *   npm run deploy -- --no-admin-ip       let nothing but the app reach the database
  *   npm run deploy -- --dry-run           check everything and say what would happen; change nothing
  *   npm run deploy -- --build-only        build the image for AWS and stop; needs no AWS account
+ *   npm run deploy -- --ci                run as GitHub Actions does; see below
  *
  * The order matters. App Runner will not create a service whose image does not exist, so
  * the registry stack goes first, then the image, then everything else.
+ *
+ * --ci changes one thing: where the admin IP comes from. A laptop run detects this
+ * machine's address (or takes --admin-ip) and saves it to SSM, so the database's
+ * firewall rule always reflects wherever you deployed from last. A CI run has no
+ * meaningful "this machine" to detect — a GitHub runner's address is different every
+ * time and reaching nothing you'd ever want to reach directly — so it reads that saved
+ * address back instead of overwriting it with its own. This is what keeps `npm run
+ * aws:db` and `psql` working from your laptop even though CI deploys the site. --ci is
+ * implied by GITHUB_ACTIONS=true, which the workflow sets, so it does not need typing.
  */
 
 const REPOSITORY = "rva4neva-olympics";
 const BASE_IMAGE = "node:22-alpine";
 const BOOTSTRAP_QUALIFIER = "hnb659fds"; // CDK's default
+const ADMIN_IP_PARAMETER = "/rva4neva-olympics/admin-ip";
 
 const dryRun = flag("dry-run");
 const buildOnly = flag("build-only");
+const ci = flag("ci") || process.env.GITHUB_ACTIONS === "true";
 
 /** Environment for the CDK CLI. */
 function cdkEnv(context: AwsContext) {
@@ -181,16 +196,33 @@ async function main() {
   console.log(siteStatus ? `  ${SITE_STACK} is ${siteStatus}` : `  ${SITE_STACK} does not exist yet; this is the first deploy`);
 
   step("Working out who may reach the database directly");
-  let adminIp = flag("no-admin-ip") ? undefined : (option("admin-ip") ?? (await detectPublicIp()));
-  if (adminIp && !/^\d{1,3}(\.\d{1,3}){3}$/.test(adminIp)) fail(`--admin-ip must be an IPv4 address, not "${adminIp}".`);
-  console.log(
-    adminIp
-      ? `  ${adminIp}. Only this address and the app can reach the database.`
-      : flag("no-admin-ip")
-        ? "  no one but the app (--no-admin-ip). Migrations and psql from a laptop will not work."
-        : "  could not detect this machine's address, so only the app will be able to reach the database.\n" +
-          "  (Pass --admin-ip=1.2.3.4 if you need to run migrations from here.)",
-  );
+  let adminIp: string | undefined;
+  if (ci) {
+    // Never detect: a runner's own address is meaningless to save, and would overwrite
+    // the laptop address that migrations and psql actually depend on.
+    adminIp = getSsmParameter(context, ADMIN_IP_PARAMETER);
+    console.log(
+      adminIp
+        ? `  ${adminIp} (read from SSM; set by the last laptop deploy).`
+        : `  nothing saved at ${ADMIN_IP_PARAMETER}. Only the app will be able to reach the database.`,
+    );
+  } else {
+    adminIp = flag("no-admin-ip") ? undefined : (option("admin-ip") ?? (await detectPublicIp()));
+    if (adminIp && !/^\d{1,3}(\.\d{1,3}){3}$/.test(adminIp)) fail(`--admin-ip must be an IPv4 address, not "${adminIp}".`);
+    console.log(
+      adminIp
+        ? `  ${adminIp}. Only this address and the app can reach the database.`
+        : flag("no-admin-ip")
+          ? "  no one but the app (--no-admin-ip). Migrations and psql from a laptop will not work."
+          : "  could not detect this machine's address, so only the app will be able to reach the database.\n" +
+            "  (Pass --admin-ip=1.2.3.4 if you need to run migrations from here.)",
+    );
+    // Persisted so a later CI deploy reads the same address back instead of losing it.
+    if (!dryRun) {
+      if (adminIp) putSsmParameter(context, ADMIN_IP_PARAMETER, adminIp);
+      else deleteSsmParameter(context, ADMIN_IP_PARAMETER);
+    }
+  }
 
   const ecrHost = `${context.account}.dkr.ecr.${context.region}.amazonaws.com`;
   const reference = `${ecrHost}/${REPOSITORY}:${tag}`;
@@ -242,16 +274,24 @@ async function main() {
     });
 
     const outputs = (JSON.parse(readFileSync(outputsFile, "utf8")) as Record<string, Record<string, string>>)[SITE_STACK] ?? {};
-    let placeholder = true;
-    try {
-      const value = capture(
-        "aws",
-        ["secretsmanager", "get-secret-value", "--secret-id", outputs.AppDatabaseUrlSecretArn, "--query", "SecretString", "--output", "text"],
-        { env: context.env },
-      );
-      placeholder = value === APP_SECRET_PLACEHOLDER;
-    } catch {
-      // If the secret cannot be read, assume it still needs setting up.
+
+    // The CI role cannot read Secrets Manager (it has no reason to), so it cannot check
+    // whether the app's login is still the placeholder. Skipping the check rather than
+    // failing on it: a CI deploy only ever follows a laptop deploy that already ran
+    // `npm run aws:db`, so the hint would not be telling CI anything true anyway.
+    let placeholder = false;
+    if (!ci) {
+      placeholder = true;
+      try {
+        const value = capture(
+          "aws",
+          ["secretsmanager", "get-secret-value", "--secret-id", outputs.AppDatabaseUrlSecretArn, "--query", "SecretString", "--output", "text"],
+          { env: context.env },
+        );
+        placeholder = value === APP_SECRET_PLACEHOLDER;
+      } catch {
+        // If the secret cannot be read, assume it still needs setting up.
+      }
     }
 
     console.log(`\n✓ Deployed ${tag}.\n\n  Site:      ${outputs.ServiceUrl}`);
