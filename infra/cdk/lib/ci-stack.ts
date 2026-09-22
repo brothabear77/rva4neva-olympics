@@ -17,15 +17,27 @@ export interface CiStackProps extends cdk.StackProps {
 }
 
 /**
- * One IAM role that GitHub Actions assumes to deploy this site, and nothing else.
+ * Two IAM roles that GitHub Actions can assume, and nothing else.
  *
  * There is no access key here. GitHub's runner presents a short-lived OIDC token for
- * each job, and this role trusts that token — but only when it says it was minted for
+ * each job, and these roles trust that token — but only when it says it was minted for
  * a push to this exact repository and branch. A workflow running for a pull request,
  * or from a fork, or on any other branch, gets refused before it can call AWS at all.
  *
+ * DeployRole ships the app: it can push an image and update the stacks, but it cannot
+ * read the database's credentials or reach it — a compromised dependency in a routine
+ * deploy is limited to shipping bad app code, not touching the database directly.
+ *
+ * MigrateRole is the one exception, assumed only by the workflow's `migrate` job, which
+ * itself only runs when a push changes `drizzle/`. It can read the database owner's
+ * secret and briefly open the database's security group to the runner's own IP — the
+ * same thing a laptop deploy's admin-ip does, just scoped to one job instead of left
+ * open. Splitting this into its own role, rather than widening DeployRole, means an
+ * ordinary code-only deploy never even has the option of touching the database owner's
+ * credentials, whatever runs during it.
+ *
  * This stack is deployed by hand, once: `npx cdk deploy OlympicsCi`. CI cannot create
- * the role it would need in order to run itself.
+ * the roles it would need in order to run itself.
  */
 export class CiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: CiStackProps) {
@@ -56,16 +68,17 @@ export class CiStack extends cdk.Stack {
     // match — it predates this being worked out. Using the real ids here keeps the
     // exact-match property that wildcard gives up.
     const subject = `repo:${props.githubOwner}@${props.githubOwnerId}/${props.githubRepoName}@${props.githubRepoId}:ref:refs/heads/${props.branch}`;
+    const trust = new iam.WebIdentityPrincipal(provider.openIdConnectProviderArn, {
+      StringEquals: {
+        "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+        "token.actions.githubusercontent.com:sub": subject,
+      },
+    });
 
     const role = new iam.Role(this, "DeployRole", {
       roleName: "rva4neva-olympics-github-deploy",
       description: "Assumed by GitHub Actions to deploy rva4neva-olympics. Scoped to one repo and branch.",
-      assumedBy: new iam.WebIdentityPrincipal(provider.openIdConnectProviderArn, {
-        StringEquals: {
-          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-          "token.actions.githubusercontent.com:sub": subject,
-        },
-      }),
+      assumedBy: trust,
       maxSessionDuration: cdk.Duration.hours(1),
     });
 
@@ -123,5 +136,72 @@ export class CiStack extends cdk.Stack {
     );
 
     new cdk.CfnOutput(this, "DeployRoleArn", { value: role.roleArn });
+
+    // --- the migrate role: read the database owner's secret, open the database briefly ---
+    const region = cdk.Stack.of(this).region;
+    const account = cdk.Stack.of(this).account;
+
+    const migrateRole = new iam.Role(this, "MigrateRole", {
+      roleName: "rva4neva-olympics-github-migrate",
+      description:
+        "Assumed by GitHub Actions only when a push changes drizzle/, to apply the migration. " +
+        "Scoped to one repo and branch, same as DeployRole.",
+      assumedBy: trust,
+      maxSessionDuration: cdk.Duration.hours(1),
+    });
+
+    // Secret names are fixed (SiteStack), but Secrets Manager appends a random suffix to
+    // every ARN, so the exact ARN cannot be written here — only this account's stacks
+    // can create either secret, so the name prefix is enough to scope it to them.
+    const masterSecretPattern = `arn:aws:secretsmanager:${region}:${account}:secret:rva4neva/database-master-*`;
+    const appSecretPattern = `arn:aws:secretsmanager:${region}:${account}:secret:rva4neva/app-database-url-*`;
+    migrateRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: "ReadDatabaseCredentials",
+        actions: ["secretsmanager:GetSecretValue"],
+        resources: [masterSecretPattern, appSecretPattern],
+      }),
+    );
+    migrateRole.addToPolicy(
+      new iam.PolicyStatement({
+        // Only the app's own secret can be written — never the owner's. Rotating the app
+        // role's password on a normal migration run would work either way; overwriting
+        // the master secret would lock the owner out.
+        sid: "WriteAppCredential",
+        actions: ["secretsmanager:PutSecretValue"],
+        resources: [appSecretPattern],
+      }),
+    );
+
+    // Opening and closing the database's firewall for the run's own IP, the same thing
+    // deploy.ts does for a laptop's admin-ip, just scoped to this one group by tag rather
+    // than by id — this stack is deployed separately from SiteStack and cannot reference
+    // the security group's generated id directly. See DatabaseSecurityGroup's own comment.
+    migrateRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: "OpenDatabaseTemporarily",
+        actions: ["ec2:AuthorizeSecurityGroupIngress", "ec2:RevokeSecurityGroupIngress"],
+        resources: [`arn:aws:ec2:${region}:${account}:security-group/*`],
+        conditions: { StringEquals: { "aws:ResourceTag/Name": "rva4neva-olympics-database" } },
+      }),
+    );
+    migrateRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: "DescribeStacks",
+        actions: ["cloudformation:DescribeStacks"],
+        resources: [`arn:aws:cloudformation:${region}:${account}:stack/OlympicsSite/*`],
+      }),
+    );
+    migrateRole.addToPolicy(
+      new iam.PolicyStatement({
+        // Restarts the app after saving its (possibly rotated) login, same as a laptop's
+        // `npm run aws:db` does; and checks the restart succeeded.
+        sid: "RestartApp",
+        actions: ["apprunner:StartDeployment", "apprunner:ListOperations"],
+        resources: [`arn:aws:apprunner:${region}:${account}:service/rva4neva-olympics/*`],
+      }),
+    );
+
+    new cdk.CfnOutput(this, "MigrateRoleArn", { value: migrateRole.roleArn });
   }
 }

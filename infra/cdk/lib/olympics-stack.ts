@@ -89,9 +89,17 @@ export class SiteStack extends cdk.Stack {
 
     const databaseSecurityGroup = new ec2.SecurityGroup(this, "DatabaseSecurityGroup", {
       vpc,
+      // GroupDescription is immutable in CloudFormation — changing this text would replace
+      // the group (and cascade into its ingress rules and the cluster's SG reference), so
+      // it stays exactly as first deployed even though a CI run now also opens it briefly.
       description: "Aurora: the app, and one admin IP address. Nothing else.",
       allowAllOutbound: false,
     });
+    // A tag, not a fixed securityGroupName (also immutable, also a replacement): stable
+    // enough for OlympicsCi's IAM condition below, which is deployed separately and by
+    // hand, so it cannot reference this group's generated id directly. A tag update alone
+    // applies in place.
+    cdk.Tags.of(databaseSecurityGroup).add("Name", "rva4neva-olympics-database");
     databaseSecurityGroup.addIngressRule(appSecurityGroup, ec2.Port.tcp(5432), "The app");
     if (props.adminIp) {
       databaseSecurityGroup.addIngressRule(
@@ -100,6 +108,8 @@ export class SiteStack extends cdk.Stack {
         "Admin machine: migrations and psql",
       );
     }
+    // CI opens and closes its own rule here at migration time (scripts/aws-db.ts --ci) —
+    // it is not declared here because its IP is only known for the ~minute a job runs.
 
     // --- database ------------------------------------------------------------------------
     //
@@ -221,6 +231,7 @@ export class SiteStack extends cdk.Stack {
     new cdk.CfnOutput(this, "ServiceUrl", { value: `https://${service.attrServiceUrl}` });
     new cdk.CfnOutput(this, "ServiceArn", { value: service.attrServiceArn });
     new cdk.CfnOutput(this, "DatabaseEndpoint", { value: database.clusterEndpoint.hostname });
+    new cdk.CfnOutput(this, "DatabaseSecurityGroupId", { value: databaseSecurityGroup.securityGroupId });
     new cdk.CfnOutput(this, "DatabaseMasterSecretArn", { value: database.secret!.secretArn });
     new cdk.CfnOutput(this, "AppDatabaseUrlSecretArn", { value: appDatabaseUrl.secretArn });
   }
