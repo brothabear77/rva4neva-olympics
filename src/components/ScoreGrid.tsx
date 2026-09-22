@@ -246,7 +246,7 @@ export function ScoreGrid({
 
       {/* Static on the page: the grid takes its full height and the page scrolls,
           so there is no scroll box to get stuck in. The one exception is a screen
-          too narrow for ten columns, where it scrolls sideways (with the athlete
+          too narrow for eleven columns, where it scrolls sideways (with the athlete
           names pinned) instead of stretching the whole page. */}
       <div className="card overflow-x-auto">
         <table ref={tableRef} className="w-full border-separate border-spacing-0 text-left">

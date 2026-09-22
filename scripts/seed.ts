@@ -17,76 +17,83 @@ import { scoreResult } from "../src/lib/scoring";
 
 const EVENTS = [
   {
-    slug: "40-yard-dash", name: "40-Yard Dash", day: 1, sortOrder: 1,
-    unitLabel: "s", decimals: 2, benchmark1000: 4.8, benchmarkZero: 9,
-    description: "One sprint, timed. Fastest of two attempts counts.",
+    slug: "50m-swim", name: "50m Swim", day: 1, sortOrder: 1,
+    unitLabel: "s", decimals: 2, benchmark1000: 35, benchmarkZero: 70,
+    description: "One length, timed. Any stroke.",
   },
   {
-    slug: "cornhole-shootout", name: "Cornhole Shootout", day: 1, sortOrder: 2,
-    unitLabel: "bags", decimals: 0, benchmark1000: 16, benchmarkZero: 2,
-    description: "Twenty bags from regulation distance. Count the ones that drop.",
+    slug: "vertical-jump", name: "Vertical Jump", day: 1, sortOrder: 2,
+    unitLabel: "in", decimals: 1, benchmark1000: 24, benchmarkZero: 6,
+    description: "Standing reach, then the best of three jumps.",
   },
   {
-    slug: "keg-toss", name: "Keg Toss", day: 1, sortOrder: 3,
-    unitLabel: "ft", decimals: 1, benchmark1000: 30, benchmarkZero: 8,
-    description: "Empty keg, two hands, best of three throws.",
+    slug: "shuttle-run", name: "Shuttle Run", day: 1, sortOrder: 3,
+    unitLabel: "s", decimals: 2, benchmark1000: 4.5, benchmarkZero: 7.5,
+    description: "Five yards, turn, ten back, turn, five home. Timed.",
   },
   {
-    slug: "wiffle-derby", name: "Wiffle Ball Derby", day: 1, sortOrder: 4,
-    unitLabel: "HR", decimals: 0, benchmark1000: 10, benchmarkZero: 0,
-    description: "Fifteen pitches. Over the fence only.",
+    slug: "jump-rope", name: "Jump Rope", day: 1, sortOrder: 4,
+    unitLabel: "reps", decimals: 0, benchmark1000: 150, benchmarkZero: 10,
+    description: "Consecutive jumps, unbroken. One minute cap.",
   },
   {
-    slug: "spikeball-rally", name: "Spikeball Rally", day: 1, sortOrder: 5,
-    unitLabel: "touches", decimals: 0, benchmark1000: 40, benchmarkZero: 5,
-    description: "Longest unbroken rally with a partner.",
+    slug: "med-ball-toss", name: "Med Ball Toss", day: 1, sortOrder: 5,
+    unitLabel: "ft", decimals: 1, benchmark1000: 35, benchmarkZero: 10,
+    description: "Overhead, two hands, best of three throws.",
   },
   {
-    slug: "plank-hold", name: "Plank Hold", day: 2, sortOrder: 1,
-    unitLabel: "s", decimals: 0, benchmark1000: 240, benchmarkZero: 20,
-    description: "Elbows down, hips up. Timer stops when form goes.",
+    slug: "farmers-walk", name: "Farmer's Walk", day: 1, sortOrder: 6,
+    unitLabel: "s", decimals: 1, benchmark1000: 20, benchmarkZero: 60,
+    description: "A weight in each hand, timed over a fixed course.",
   },
   {
-    slug: "putt-putt", name: "Putt-Putt Gauntlet", day: 2, sortOrder: 2,
-    unitLabel: "strokes", decimals: 0, benchmark1000: 18, benchmarkZero: 40,
-    description: "Nine holes. Fewest strokes wins, so lower scores more.",
+    slug: "stick-drop", name: "Stick Drop Game", day: 2, sortOrder: 1,
+    unitLabel: "in", decimals: 1, benchmark1000: 2, benchmarkZero: 12,
+    description: "Reaction time: how far the stick falls before it's caught.",
   },
   {
-    slug: "flip-cup-sprint", name: "Flip Cup Sprint", day: 2, sortOrder: 3,
-    unitLabel: "s", decimals: 2, benchmark1000: 8, benchmarkZero: 30,
-    description: "Six cups, solo, timed from first sip to last flip.",
+    slug: "100m-run", name: "100m Run", day: 2, sortOrder: 2,
+    unitLabel: "s", decimals: 2, benchmark1000: 12.5, benchmarkZero: 20,
+    description: "One sprint, timed.",
   },
   {
-    slug: "corn-maze-trivia", name: "Trivia Gauntlet", day: 2, sortOrder: 4,
-    unitLabel: "pts", decimals: 0, benchmark1000: 45, benchmarkZero: 10,
-    description: "Fifty questions, no phones, honor system.",
+    slug: "cone-drill", name: "Cone Drill", day: 2, sortOrder: 3,
+    unitLabel: "s", decimals: 2, benchmark1000: 4.2, benchmarkZero: 7,
+    description: "Weave the cones, timed.",
   },
   {
-    slug: "tug-of-war-anchor", name: "Anchor Pull", day: 2, sortOrder: 5,
-    unitLabel: "s", decimals: 1, benchmark1000: 45, benchmarkZero: 5,
-    description: "Hold the rope against the sled. Longest hold wins.",
+    slug: "broad-jump", name: "Broad Jump", day: 2, sortOrder: 4,
+    unitLabel: "ft", decimals: 1, benchmark1000: 9, benchmarkZero: 4,
+    description: "Standing start, both feet, best of three jumps.",
+  },
+  {
+    slug: "mile-run", name: "Mile Run", day: 2, sortOrder: 5,
+    unitLabel: "s", decimals: 0, benchmark1000: 390, benchmarkZero: 720,
+    description: "One mile, timed. Entered in seconds (6:30 = 390).",
   },
 ] as const;
 
+// Kept in sync with src/content/athletes.ts by hand: that file adds photos, taglines
+// and bios for whoever is on the roster, but the roster itself lives here.
 const ATHLETES = [
-  "Nick", "Dana", "Theo", "Priya", "Marcus", "Jo", "Elena", "Sam",
+  "Nick", "Mena", "Allen", "Ashley", "David", "Marco", "Mohit", "Ahmed", "Nat", "Pam",
 ] as const;
 
 /** Sample scores — only loaded with --with-results. */
 const SAMPLE: Array<[string, string, number]> = [
-  ["40-yard-dash", "Nick", 5.42], ["40-yard-dash", "Dana", 5.11],
-  ["40-yard-dash", "Theo", 6.03], ["40-yard-dash", "Priya", 5.28],
-  ["40-yard-dash", "Marcus", 4.94], ["40-yard-dash", "Jo", 5.77],
-  ["cornhole-shootout", "Nick", 11], ["cornhole-shootout", "Dana", 7],
-  ["cornhole-shootout", "Theo", 14], ["cornhole-shootout", "Priya", 9],
-  ["cornhole-shootout", "Marcus", 6], ["cornhole-shootout", "Elena", 12],
-  ["keg-toss", "Nick", 21.5], ["keg-toss", "Dana", 17.0],
-  ["keg-toss", "Theo", 26.5], ["keg-toss", "Marcus", 24.0],
-  ["keg-toss", "Sam", 19.5],
-  ["wiffle-derby", "Nick", 6], ["wiffle-derby", "Priya", 8],
-  ["wiffle-derby", "Theo", 3], ["wiffle-derby", "Elena", 5],
-  ["spikeball-rally", "Dana", 33], ["spikeball-rally", "Jo", 41],
-  ["spikeball-rally", "Sam", 18],
+  ["50m-swim", "Nick", 42.1], ["50m-swim", "Mena", 38.7],
+  ["50m-swim", "Allen", 51.4], ["50m-swim", "Ashley", 40.2],
+  ["50m-swim", "David", 36.9], ["50m-swim", "Marco", 47.8],
+  ["vertical-jump", "Nick", 19.5], ["vertical-jump", "Mena", 15.0],
+  ["vertical-jump", "Allen", 21.0], ["vertical-jump", "Ashley", 14.5],
+  ["vertical-jump", "David", 17.0], ["vertical-jump", "Mohit", 12.5],
+  ["shuttle-run", "Nick", 5.1], ["shuttle-run", "Mena", 5.6],
+  ["shuttle-run", "Allen", 4.9], ["shuttle-run", "David", 5.3],
+  ["shuttle-run", "Ahmed", 5.8],
+  ["jump-rope", "Nick", 88], ["jump-rope", "Ashley", 104],
+  ["jump-rope", "Allen", 62], ["jump-rope", "Mohit", 71],
+  ["med-ball-toss", "Mena", 24.0], ["med-ball-toss", "Marco", 28.5],
+  ["med-ball-toss", "Ahmed", 19.5],
 ];
 
 async function main() {

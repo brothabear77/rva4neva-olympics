@@ -10,7 +10,7 @@ import type { Event } from "@/lib/schema";
 /**
  * Standings, with each athlete's per-event breakdown available on tap.
  *
- * The breakdown lives in an expandable row rather than extra columns: with ten
+ * The breakdown lives in an expandable row rather than extra columns: with eleven
  * events there is no width on a phone for a full matrix, and the question
  * people actually ask is "where did *I* lose ground", one athlete at a time.
  */

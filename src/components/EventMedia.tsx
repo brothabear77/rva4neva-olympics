@@ -19,7 +19,7 @@ const FRAME = "relative aspect-video w-full overflow-hidden rounded-xl bg-[var(-
  *
  * YouTube is a facade. The player is not put on the page until someone presses
  * play, so nothing is requested from YouTube (and no tracking loads) just from
- * looking at the guide, and ten events do not mean ten players loading at once.
+ * looking at the guide, and eleven events do not mean eleven players loading at once.
  */
 export function EventMedia({ media }: { media: ResolvedMedia | null }) {
   const [playing, setPlaying] = useState(false);

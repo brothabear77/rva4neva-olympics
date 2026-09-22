@@ -11,7 +11,7 @@ const STARTS_AT_LOCAL = "2027-09-10T10:00";
 export const SITE = {
   name: "#rva4neva Olympics",
   shortName: "#rva4neva",
-  tagline: "Two days. Ten events. One champion.",
+  tagline: "Two days. Eleven events. One champion.",
   timeZone: EVENT_TIME_ZONE,
   startsAtLocal: STARTS_AT_LOCAL,
   /** The same moment as an absolute UTC instant. Drives the homepage countdown. */

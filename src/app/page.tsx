@@ -55,7 +55,7 @@ export default async function HomePage() {
           Olympics
         </h1>
         <p className="mt-4 max-w-xl text-sm text-muted">
-          Ten events across two days. Every result converts to points on a
+          Eleven events across two days. Every result converts to points on a
           decathlon-style scale, so the sprint and the trivia round count toward
           the same total.
         </p>
