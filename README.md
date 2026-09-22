@@ -10,18 +10,18 @@ one converts its raw measurement to a common point scale, decathlon-style. Real
 decathlon uses `A × (P − B)^C`; here the curve is a straight line through two
 benchmarks the organizer picks per event:
 
-- `benchmark_1000` — the performance worth **1000 points**
+- `benchmark_standard` — the performance worth **100 points**
 - `benchmark_zero` — the performance worth **0 points**
 
 ```
-points = round( 1000 × (raw − benchmark_zero) / (benchmark_1000 − benchmark_zero) )
+points = round( 100 × (raw − benchmark_zero) / (benchmark_standard − benchmark_zero) )
 ```
 
-Direction falls out of the math: for a sprint the 1000-point mark (5.0s) is
+Direction falls out of the math: for a sprint the 100-point mark (5.0s) is
 *below* the 0-point mark (9.0s), so the slope is negative and faster scores
 higher. No "lower is better" flag exists anywhere in the code.
 
-Points floor at 0 and are deliberately **not** capped at 1000 — beating the top
+Points floor at 0 and are deliberately **not** capped at 100 — beating the top
 benchmark should be worth something, as in a real decathlon.
 
 The formula lives in one place, [`src/lib/scoring.ts`](src/lib/scoring.ts), and is
@@ -160,7 +160,7 @@ to the event's own. To add rules and a demo, edit `src/content/events.ts`:
 
 Put files in `public/events/`. A `src` is a photo, GIF or video according to its file
 ending. A YouTube clip loads nothing from YouTube until someone presses play.
-`/info/events?event=keg-toss` opens straight onto one event's tab.
+`/info/events-guide?event=keg-toss` opens straight onto one event's tab.
 
 Names and slugs are matched ignoring case. While you run the site locally, a notice
 appears if an entry matches nobody, a link can't be read as YouTube, or a file isn't

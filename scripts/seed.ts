@@ -18,57 +18,57 @@ import { scoreResult } from "../src/lib/scoring";
 const EVENTS = [
   {
     slug: "50m-swim", name: "50m Swim", day: 1, sortOrder: 1,
-    unitLabel: "s", decimals: 2, benchmark1000: 35, benchmarkZero: 70,
+    unitLabel: "s", decimals: 2, benchmarkStandard: 35, benchmarkZero: 70,
     description: "One length, timed. Any stroke.",
   },
   {
     slug: "vertical-jump", name: "Vertical Jump", day: 1, sortOrder: 2,
-    unitLabel: "in", decimals: 1, benchmark1000: 24, benchmarkZero: 6,
+    unitLabel: "in", decimals: 1, benchmarkStandard: 24, benchmarkZero: 6,
     description: "Standing reach, then the best of three jumps.",
   },
   {
     slug: "shuttle-run", name: "Shuttle Run", day: 1, sortOrder: 3,
-    unitLabel: "s", decimals: 2, benchmark1000: 4.5, benchmarkZero: 7.5,
+    unitLabel: "s", decimals: 2, benchmarkStandard: 4.5, benchmarkZero: 7.5,
     description: "Five yards, turn, ten back, turn, five home. Timed.",
   },
   {
     slug: "jump-rope", name: "Jump Rope", day: 1, sortOrder: 4,
-    unitLabel: "reps", decimals: 0, benchmark1000: 150, benchmarkZero: 10,
+    unitLabel: "reps", decimals: 0, benchmarkStandard: 150, benchmarkZero: 10,
     description: "Consecutive jumps, unbroken. One minute cap.",
   },
   {
     slug: "med-ball-toss", name: "Med Ball Toss", day: 1, sortOrder: 5,
-    unitLabel: "ft", decimals: 1, benchmark1000: 35, benchmarkZero: 10,
+    unitLabel: "ft", decimals: 1, benchmarkStandard: 35, benchmarkZero: 10,
     description: "Overhead, two hands, best of three throws.",
   },
   {
     slug: "farmers-walk", name: "Farmer's Walk", day: 1, sortOrder: 6,
-    unitLabel: "s", decimals: 1, benchmark1000: 20, benchmarkZero: 60,
+    unitLabel: "s", decimals: 1, benchmarkStandard: 20, benchmarkZero: 60,
     description: "A weight in each hand, timed over a fixed course.",
   },
   {
     slug: "stick-drop", name: "Stick Drop Game", day: 2, sortOrder: 1,
-    unitLabel: "in", decimals: 1, benchmark1000: 2, benchmarkZero: 12,
+    unitLabel: "in", decimals: 1, benchmarkStandard: 2, benchmarkZero: 12,
     description: "Reaction time: how far the stick falls before it's caught.",
   },
   {
     slug: "100m-run", name: "100m Run", day: 2, sortOrder: 2,
-    unitLabel: "s", decimals: 2, benchmark1000: 12.5, benchmarkZero: 20,
+    unitLabel: "s", decimals: 2, benchmarkStandard: 12.5, benchmarkZero: 20,
     description: "One sprint, timed.",
   },
   {
     slug: "cone-drill", name: "Cone Drill", day: 2, sortOrder: 3,
-    unitLabel: "s", decimals: 2, benchmark1000: 4.2, benchmarkZero: 7,
+    unitLabel: "s", decimals: 2, benchmarkStandard: 4.2, benchmarkZero: 7,
     description: "Weave the cones, timed.",
   },
   {
     slug: "broad-jump", name: "Broad Jump", day: 2, sortOrder: 4,
-    unitLabel: "ft", decimals: 1, benchmark1000: 9, benchmarkZero: 4,
+    unitLabel: "ft", decimals: 1, benchmarkStandard: 9, benchmarkZero: 4,
     description: "Standing start, both feet, best of three jumps.",
   },
   {
     slug: "mile-run", name: "Mile Run", day: 2, sortOrder: 5,
-    unitLabel: "s", decimals: 0, benchmark1000: 390, benchmarkZero: 720,
+    unitLabel: "s", decimals: 0, benchmarkStandard: 390, benchmarkZero: 720,
     description: "One mile, timed. Entered in seconds (6:30 = 390).",
   },
 ] as const;
@@ -125,7 +125,7 @@ async function main() {
             unitLabel: sql`excluded.unit_label`,
             day: sql`excluded.day`,
             sortOrder: sql`excluded.sort_order`,
-            benchmark1000: sql`excluded.benchmark_1000`,
+            benchmarkStandard: sql`excluded.benchmark_standard`,
             benchmarkZero: sql`excluded.benchmark_zero`,
             decimals: sql`excluded.decimals`,
           },

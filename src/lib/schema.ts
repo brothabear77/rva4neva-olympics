@@ -48,8 +48,8 @@ export const events = appSchema.table(
     unitLabel: text("unit_label").notNull().default(""),
     day: smallint("day").notNull().default(1),
     sortOrder: integer("sort_order").notNull().default(0),
-    /** The performance worth 1000 points. Below benchmarkZero for timed events. */
-    benchmark1000: numeric("benchmark_1000", { precision: 12, scale: 4, mode: "number" }).notNull(),
+    /** The performance worth 100 points. Below benchmarkZero for timed events. */
+    benchmarkStandard: numeric("benchmark_standard", { precision: 12, scale: 4, mode: "number" }).notNull(),
     /** The performance worth 0 points. */
     benchmarkZero: numeric("benchmark_zero", { precision: 12, scale: 4, mode: "number" }).notNull(),
     /** Decimal places to show and accept for this event's measurement. */

@@ -265,17 +265,17 @@ export interface LadderStep {
 }
 
 /**
- * A few marks and what they are worth, so the scale is concrete: "4.80 s is 1000,
- * 6.90 s is 500". Each mark is rounded to the event's own precision and then
+ * A few marks and what they are worth, so the scale is concrete: "4.80 s is 100,
+ * 6.90 s is 50". Each mark is rounded to the event's own precision and then
  * scored again, so the points shown are what that exact mark really earns. An
  * event measured in whole numbers cannot land on every round points value, and
- * saying "13 bags = 750" when 13 bags is 786 would be a small lie.
+ * saying "13 bags = 75" when 13 bags is 79 would be a small lie.
  */
 export function scoreLadder(
   config: ScoringConfig,
   decimals: number,
   unitLabel: string,
-  targets: readonly number[] = [1000, 750, 500, 250, 0],
+  targets: readonly number[] = [100, 75, 50, 25, 0],
 ): LadderStep[] {
   if (!isScorable(config)) return [];
 

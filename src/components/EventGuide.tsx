@@ -143,12 +143,12 @@ export function EventGuide({ events, initialSlug }: { events: GuideEvent[]; init
                   <p className="text-sm leading-relaxed text-muted">
                     Points run in a straight line between two marks.{" "}
                     {current.scale.lowerIsBetter ? "Lower is better here." : "Higher is better here."} Beating the
-                    top mark scores over 1000, and nothing scores below 0.
+                    top mark scores over 100, and nothing scores below 0.
                   </p>
 
                   <dl className="mt-4 grid grid-cols-2 gap-3">
                     <div className="card p-3">
-                      <dt className="eyebrow">Worth 1000 points</dt>
+                      <dt className="eyebrow">Worth 100 points</dt>
                       <dd className="tnum mt-1 font-display text-2xl font-bold text-accent">{current.scale.top}</dd>
                     </div>
                     <div className="card p-3">

@@ -246,24 +246,24 @@ describe("initials", () => {
 });
 
 describe("scoreLadder", () => {
-  const dash = { benchmark1000: 4.8, benchmarkZero: 9 };
+  const dash = { benchmarkStandard: 4.8, benchmarkZero: 9 };
 
   it("lays out a lower-is-better event from best to worst", () => {
     const ladder = scoreLadder(dash, 2, "s");
-    expect(ladder.map((s) => s.points)).toEqual([1000, 750, 500, 250, 0]);
+    expect(ladder.map((s) => s.points)).toEqual([100, 75, 50, 25, 0]);
     expect(ladder.map((s) => s.mark)).toEqual(["4.80 s", "5.85 s", "6.90 s", "7.95 s", "9.00 s"]);
   });
 
   it("lays out a higher-is-better event", () => {
-    const ladder = scoreLadder({ benchmark1000: 30, benchmarkZero: 0 }, 0, "ft");
+    const ladder = scoreLadder({ benchmarkStandard: 30, benchmarkZero: 0 }, 0, "ft");
     expect(ladder.map((s) => s.mark)).toEqual(["30 ft", "23 ft", "15 ft", "8 ft", "0 ft"]);
   });
 
   it("shows the points a rounded mark really earns, not the round number it was aimed at", () => {
-    // Whole-number events cannot hit every target: 12.5 bags rounds to 13, which is 786.
-    const ladder = scoreLadder({ benchmark1000: 16, benchmarkZero: 2 }, 0, "bags");
-    expect(ladder[1]).toEqual({ points: 786, mark: "13 bags" });
-    expect(ladder[0].points).toBe(1000);
+    // Whole-number events cannot hit every target: 12.5 bags rounds to 13, which is 79.
+    const ladder = scoreLadder({ benchmarkStandard: 16, benchmarkZero: 2 }, 0, "bags");
+    expect(ladder[1]).toEqual({ points: 79, mark: "13 bags" });
+    expect(ladder[0].points).toBe(100);
     expect(ladder[4].points).toBe(0);
   });
 
@@ -272,6 +272,6 @@ describe("scoreLadder", () => {
   });
 
   it("returns nothing for an event with no scale", () => {
-    expect(scoreLadder({ benchmark1000: 5, benchmarkZero: 5 }, 2, "s")).toEqual([]);
+    expect(scoreLadder({ benchmarkStandard: 5, benchmarkZero: 5 }, 2, "s")).toEqual([]);
   });
 });

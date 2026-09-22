@@ -27,7 +27,7 @@ export function BenchmarkForm({
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useScorekeeperName();
-  const [top, setTop] = useState(String(event.benchmark1000));
+  const [top, setTop] = useState(String(event.benchmarkStandard));
   const [zero, setZero] = useState(String(event.benchmarkZero));
 
   const [state, formAction, pending] = useActionState(
@@ -35,10 +35,13 @@ export function BenchmarkForm({
     null,
   );
 
-  const draft = { benchmark1000: Number(top), benchmarkZero: Number(zero) };
-  const identical = draft.benchmark1000 === draft.benchmarkZero;
+  const draft = { benchmarkStandard: Number(top), benchmarkZero: Number(zero) };
+  const identical = draft.benchmarkStandard === draft.benchmarkZero;
   const preview =
-    sampleRaw !== null && !identical && Number.isFinite(draft.benchmark1000) && Number.isFinite(draft.benchmarkZero)
+    sampleRaw !== null &&
+    !identical &&
+    Number.isFinite(draft.benchmarkStandard) &&
+    Number.isFinite(draft.benchmarkZero)
       ? scoreResult(sampleRaw, draft)
       : null;
 
@@ -59,19 +62,19 @@ export function BenchmarkForm({
           Scoring scale
         </h3>
         <p className="mt-1 text-sm text-muted">
-          Two anchors define the whole event. For a timed event the 1000-point
+          Two anchors define the whole event. For a timed event the 100-point
           mark is the <em>faster</em> number.
         </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <div>
-          <label className="label" htmlFor="benchmark1000">
-            Worth 1000 points
+          <label className="label" htmlFor="benchmarkStandard">
+            Worth 100 points
           </label>
           <input
-            id="benchmark1000"
-            name="benchmark1000"
+            id="benchmarkStandard"
+            name="benchmarkStandard"
             type="number"
             step="any"
             required
@@ -128,7 +131,7 @@ export function BenchmarkForm({
       {identical ? (
         <Banner tone="error">
           Both benchmarks are {top}. They must differ, or every performance would be
-          worth 0 and 1000 at the same time.
+          worth 0 and 100 at the same time.
         </Banner>
       ) : preview !== null && sampleRaw !== null ? (
         <p className="tnum text-sm text-muted">
