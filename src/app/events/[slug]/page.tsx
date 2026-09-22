@@ -30,7 +30,7 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
         description={event.description || undefined}
         actions={
           <>
-            <Link href={`/info/events?event=${event.slug}`} className="btn btn-ghost">
+            <Link href={`/info/events-guide?event=${event.slug}`} className="btn btn-ghost">
               Rules &amp; demo
             </Link>
             <Link href="/submit" className="btn">
@@ -75,7 +75,7 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
         </p>
         <p className="mt-2 text-xs text-muted">
           Points run in a straight line between the two marks, and beating the top
-          mark scores above 1000.
+          mark scores above 100.
         </p>
       </div>
 

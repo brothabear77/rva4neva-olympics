@@ -4,11 +4,11 @@ import { buildImportPreview, parseResultsCsv, type KnownEvent } from "../csv";
 const EVENTS: KnownEvent[] = [
   {
     id: "e1", slug: "40-yard-dash", name: "40-Yard Dash",
-    unitLabel: "s", decimals: 2, benchmark1000: 5, benchmarkZero: 9,
+    unitLabel: "s", decimals: 2, benchmarkStandard: 5, benchmarkZero: 9,
   },
   {
     id: "e2", slug: "keg-toss", name: "Keg Toss",
-    unitLabel: "ft", decimals: 1, benchmark1000: 30, benchmarkZero: 8,
+    unitLabel: "ft", decimals: 1, benchmarkStandard: 30, benchmarkZero: 8,
   },
 ];
 
@@ -57,22 +57,22 @@ describe("buildImportPreview", () => {
     const result = preview("event,athlete,value\n40-yard-dash,Nick,7");
     expect(result.canCommit).toBe(true);
     expect(result.counts.create).toBe(1);
-    expect(result.rows[0]).toMatchObject({ action: "create", points: 500, rawValue: 7 });
+    expect(result.rows[0]).toMatchObject({ action: "create", points: 50, rawValue: 7 });
   });
 
   it("flags a row that would overwrite an existing score, with the old value", () => {
     const result = preview("event,athlete,value\n40-yard-dash,Nick,6", [
-      { eventId: "e1", athleteId: "a1", rawValue: 7, points: 500 },
+      { eventId: "e1", athleteId: "a1", rawValue: 7, points: 50 },
     ]);
     expect(result.counts.update).toBe(1);
     expect(result.rows[0]).toMatchObject({
-      action: "update", points: 750, previousRawValue: 7, previousPoints: 500,
+      action: "update", points: 75, previousRawValue: 7, previousPoints: 50,
     });
   });
 
   it("marks a re-upload of identical data as unchanged", () => {
     const result = preview("event,athlete,value\n40-yard-dash,Nick,7", [
-      { eventId: "e1", athleteId: "a1", rawValue: 7, points: 500 },
+      { eventId: "e1", athleteId: "a1", rawValue: 7, points: 50 },
     ]);
     expect(result.counts.unchanged).toBe(1);
   });

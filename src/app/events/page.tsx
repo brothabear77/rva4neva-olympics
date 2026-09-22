@@ -22,9 +22,9 @@ export default async function EventsPage() {
       <PageHeader
         eyebrow={`${events.length} events · two days`}
         title="Events"
-        description="Each event sets two benchmarks: the performance worth 1000 points and the one worth 0. Everything in between is a straight line, so a fast sprint and a long throw are worth comparing."
+        description="Each event sets two benchmarks: the performance worth 100 points and the one worth 0. Everything in between is a straight line, so a fast sprint and a long throw are worth comparing."
         actions={
-          <Link href="/info/events" className="btn btn-ghost">
+          <Link href="/info/events-guide" className="btn btn-ghost">
             Rules &amp; demos
           </Link>
         }

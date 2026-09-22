@@ -351,14 +351,14 @@ export async function deleteResult(formData: FormData): Promise<ActionResult> {
 const benchmarkSchema = z
   .object({
     eventId: z.string().uuid(),
-    benchmark1000: z.coerce.number().finite("Enter a number"),
+    benchmarkStandard: z.coerce.number().finite("Enter a number"),
     benchmarkZero: z.coerce.number().finite("Enter a number"),
     decimals: z.coerce.number().int().min(0).max(4),
     submittedBy: z.string().trim().max(80).default(""),
   })
-  .refine((v) => v.benchmark1000 !== v.benchmarkZero, {
+  .refine((v) => v.benchmarkStandard !== v.benchmarkZero, {
     message: "The two benchmarks must differ — otherwise the event has no scale.",
-    path: ["benchmark1000"],
+    path: ["benchmarkStandard"],
   });
 
 /**
@@ -372,7 +372,7 @@ const benchmarkSchema = z
 export async function updateEventBenchmarks(formData: FormData): Promise<ActionResult> {
   const parsed = benchmarkSchema.safeParse({
     eventId: formData.get("eventId"),
-    benchmark1000: formData.get("benchmark1000"),
+    benchmarkStandard: formData.get("benchmarkStandard"),
     benchmarkZero: formData.get("benchmarkZero"),
     decimals: formData.get("decimals"),
     submittedBy: formData.get("submittedBy") ?? "",
@@ -387,7 +387,7 @@ export async function updateEventBenchmarks(formData: FormData): Promise<ActionR
       const [event] = await tx
         .update(events)
         .set({
-          benchmark1000: input.benchmark1000,
+          benchmarkStandard: input.benchmarkStandard,
           benchmarkZero: input.benchmarkZero,
           decimals: input.decimals,
         })

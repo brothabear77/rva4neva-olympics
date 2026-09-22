@@ -27,7 +27,7 @@ const INTERESTING: Record<string, Array<[string, string]>> = {
   ],
   events: [
     ["name", "Name"],
-    ["benchmark_1000", "1000-pt mark"],
+    ["benchmark_standard", "100-pt mark"],
     ["benchmark_zero", "0-pt mark"],
     ["decimals", "Decimals"],
   ],

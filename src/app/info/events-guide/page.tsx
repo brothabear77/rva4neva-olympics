@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Event Guide" };
 
-export default async function EventGuidePage(props: PageProps<"/info/events">) {
+export default async function EventGuidePage(props: PageProps<"/info/events-guide">) {
   const [events, params] = await Promise.all([getEventsForForm(), props.searchParams]);
   const { rows, unmatched, duplicates } = mergeEventGuides(events, EVENT_GUIDES);
 
@@ -32,7 +32,7 @@ export default async function EventGuidePage(props: PageProps<"/info/events">) {
       media: resolveMedia(guide?.media),
       scale: isScorable(event)
         ? {
-            top: mark(event.benchmark1000),
+            top: mark(event.benchmarkStandard),
             zero: mark(event.benchmarkZero),
             lowerIsBetter: isLowerBetter(event),
             ladder: scoreLadder(event, event.decimals, event.unitLabel),
