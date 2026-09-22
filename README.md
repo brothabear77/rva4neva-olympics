@@ -226,13 +226,23 @@ src/lib/quotes.ts      tidies the quotes and sets how long each stays up
 src/content/quotes.ts  the quotes themselves — the file you edit
 src/lib/db.ts          pooling and the withActor() transaction helper
 drizzle/               migrations; 0001 is the hand-written audit layer
-scripts/               migrate and seed
-infra/aurora.md        provisioning and deploy runbook
+scripts/               migrate, seed, and the AWS deploy scripts
+Dockerfile             the production image (Next.js standalone output)
+infra/cdk/             the AWS infrastructure, as CDK code
+infra/aws.md           the AWS runbook
 ```
 
 ## Deploying
 
-Production runs on Aurora Serverless v2 PostgreSQL over a direct connection.
-See [`infra/aurora.md`](infra/aurora.md) — in particular, put **RDS Proxy** in
-front of the cluster and keep `DATABASE_POOL_MAX=1`, or a crowd refreshing the
-leaderboard will exhaust Aurora's connections.
+Production runs on AWS: App Runner for the app, Aurora Serverless v2 for the database, both
+defined with CDK in `infra/cdk`. From a signed-in AWS CLI with Docker running:
+
+```bash
+npm run deploy -- --bootstrap   # first time only
+npm run aws:db                  # first time, and after any new migration
+npm run deploy                  # every update
+```
+
+[`infra/aws.md`](infra/aws.md) is the full runbook: what gets created, what it costs, how the
+database is protected, and how to tear it down. GitHub Pages cannot host this app, since it
+only serves static files and every page here reads the database.

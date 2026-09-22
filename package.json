@@ -16,7 +16,10 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:studio": "drizzle-kit studio",
     "db:psql": "docker compose exec db psql -U olympics -d olympics",
-    "db:reset": "docker compose down -v && npm run db:up && sleep 3 && npm run db:migrate && npm run db:seed"
+    "db:reset": "docker compose down -v && npm run db:up && sleep 3 && npm run db:migrate && npm run db:seed",
+    "deploy": "tsx scripts/deploy.ts",
+    "aws:db": "tsx scripts/aws-db.ts",
+    "infra:synth": "npm --prefix infra/cdk run synth"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
@@ -26,6 +29,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
+    "sharp": "^0.35.4",
     "zod": "^4.6.5"
   },
   "devDependencies": {

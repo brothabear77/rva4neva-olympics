@@ -42,3 +42,11 @@ next-env.d.ts
 
 # ...but the template belongs in the repo
 !.env.example
+
+# ...but the public Amazon RDS CA bundle is meant to be committed: the container image
+# needs it to verify Aurora's certificates. (Certificates are public; only keys are secret.)
+!certs/*.pem
+
+# the infrastructure package has its own dependencies and build output
+infra/cdk/node_modules
+infra/cdk/cdk.out

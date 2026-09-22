@@ -14,17 +14,35 @@ function connectionString(): string {
 }
 
 function createPool(): Pool {
-  return new Pool({
+  const pool = new Pool({
     connectionString: connectionString(),
-    // Aurora is reached over a direct connection, so every serverless instance
-    // holds real backends. Keep this at 1 in production (behind RDS Proxy) and
-    // let a local dev server use a few.
+    // Each app instance holds up to this many connections, and there are only a
+    // couple of long-lived instances, so a few is plenty. The host sets this; the
+    // default is conservative if it does not.
     max: Number(process.env.DATABASE_POOL_MAX ?? (process.env.NODE_ENV === "production" ? 1 : 5)),
+    // Idle connections are released quickly. That is what lets Aurora Serverless v2
+    // pause when nobody is using the site: it cannot pause while a connection is open.
     idleTimeoutMillis: 10_000,
-    connectionTimeoutMillis: 10_000,
+    // A paused Aurora takes about 15 seconds to resume, so the first query after a quiet
+    // spell has to be willing to wait that long, or the first visitor gets an error page.
+    connectionTimeoutMillis: Number(
+      process.env.DATABASE_CONNECT_TIMEOUT_MS ?? (process.env.NODE_ENV === "production" ? 30_000 : 10_000),
+    ),
     // Aurora requires TLS. Locally (plain Postgres in Docker) it must stay off.
     ssl: process.env.DATABASE_SSL === "false" ? false : undefined,
   });
+
+  // A connection sitting idle in the pool can be closed from the server's side, and
+  // Aurora does exactly that whenever it scales to zero, fails over or restarts. The
+  // pool reports it as an "error" event, and an event emitter with no listener for
+  // "error" throws, which surfaces as an uncaught exception. Nothing is actually wrong:
+  // the pool has already discarded the dead connection and opens a fresh one on the next
+  // query. Listening is what makes that a log line instead of an exception.
+  pool.on("error", (error) => {
+    console.warn(`An idle database connection was closed (${error.message}). A new one opens on the next query.`);
+  });
+
+  return pool;
 }
 
 // Next's dev server re-evaluates modules on every edit; without this the pool

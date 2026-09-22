@@ -1,0 +1,15 @@
+# Keep the build context small and keep secrets out of the image.
+node_modules
+.next
+.git
+.gitignore
+.env*
+!.env.example
+*.log
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Infrastructure code has its own dependencies (aws-cdk-lib) and is not part of the
+# app. It must stay out of the context, or `next build` would try to type-check it.
+infra
