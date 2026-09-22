@@ -149,6 +149,16 @@ export function deleteSsmParameter(context: AwsContext, name: string) {
   }
 }
 
+/** This machine's public IPv4 address, or undefined if it cannot be worked out. */
+export async function detectPublicIp(): Promise<string | undefined> {
+  try {
+    const text = (await fetch("https://checkip.amazonaws.com", { signal: AbortSignal.timeout(8000) }).then((r) => r.text())).trim();
+    return /^\d{1,3}(\.\d{1,3}){3}$/.test(text) ? text : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function flag(name: string): boolean {
   return process.argv.includes(`--${name}`);
 }

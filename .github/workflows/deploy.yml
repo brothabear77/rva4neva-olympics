@@ -50,8 +50,15 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
+    outputs:
+      migration: ${{ steps.diff.outputs.migration }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Enough history to diff this push against what was running before it, to decide
+          # whether `migrate` (below) needs to run. github.event.before is the tip before
+          # this push; fetch-depth 0 guarantees it's actually present to diff against.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -64,3 +71,38 @@ jobs:
           role-session-name: github-actions-deploy
       - run: npm ci
       - run: npm run deploy -- --ci
+      # Decides whether the `migrate` job below runs. before is empty on the very first
+      # push a workflow ever sees for this repo (and, defensively, on anything that isn't a
+      # plain fast-forward, like a force-push) — treated as "yes" rather than risk silently
+      # skipping a schema change migrate.ts itself would still apply safely either way.
+      - id: diff
+        run: |
+          before="${{ github.event.before }}"
+          if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$before" 2>/dev/null; then
+            echo "migration=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$before" "${{ github.sha }}" -- drizzle/; then
+            echo "migration=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "migration=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Only when this push touched drizzle/ (or, in a workflow_dispatch re-run, always — see
+  # the diff step above). Runs as a separate role from `deploy`, on purpose: an ordinary
+  # code-only deploy never even has the option of reading the database's credentials,
+  # whatever runs during it. See infra/aws.md and MigrateRole's comment in ci-stack.ts.
+  migrate:
+    needs: deploy
+    if: needs.deploy.outputs.migration == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::737695750939:role/rva4neva-olympics-github-migrate
+          aws-region: us-east-1
+          role-session-name: github-actions-migrate
+      - run: npm ci
+      - run: npm run aws:db -- --ci

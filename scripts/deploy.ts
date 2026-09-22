@@ -2,7 +2,6 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
-  APP_SECRET_PLACEHOLDER,
   CDK_DIR,
   REGISTRY_STACK,
   ROOT,
@@ -11,6 +10,7 @@ import {
   awsJson,
   capture,
   deleteSsmParameter,
+  detectPublicIp,
   fail,
   flag,
   getSsmParameter,
@@ -45,6 +45,12 @@ import {
  * address back instead of overwriting it with its own. This is what keeps `npm run
  * aws:db` and `psql` working from your laptop even though CI deploys the site. --ci is
  * implied by GITHUB_ACTIONS=true, which the workflow sets, so it does not need typing.
+ *
+ * A laptop run finishes by running `npm run aws:db` itself — safe to do every time, and
+ * it is how the database picks up a migration without a second command to remember. CI
+ * never does this: DeployRole cannot reach the database or read its credentials at all,
+ * on purpose. A separate `migrate` job in the workflow does that instead, only when a
+ * push touches drizzle/, as MigrateRole (infra/cdk/lib/ci-stack.ts) — see infra/aws.md.
  */
 
 const REPOSITORY = "rva4neva-olympics";
@@ -76,16 +82,6 @@ function imageTag(): { tag: string; reusable: boolean } {
   // Uncommitted changes make the tag ambiguous, so every such build gets its own.
   const stamp = new Date().toISOString().replace(/\D/g, "").slice(0, 14);
   return { tag: `${commit}-dirty-${stamp}`, reusable: false };
-}
-
-/** This machine's public IPv4 address, or undefined if it cannot be worked out. */
-async function detectPublicIp(): Promise<string | undefined> {
-  try {
-    const text = (await fetch("https://checkip.amazonaws.com", { signal: AbortSignal.timeout(8000) }).then((r) => r.text())).trim();
-    return /^\d{1,3}(\.\d{1,3}){3}$/.test(text) ? text : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 function hasBuildx(): boolean {
@@ -274,32 +270,23 @@ async function main() {
     });
 
     const outputs = (JSON.parse(readFileSync(outputsFile, "utf8")) as Record<string, Record<string, string>>)[SITE_STACK] ?? {};
-
-    // The CI role cannot read Secrets Manager (it has no reason to), so it cannot check
-    // whether the app's login is still the placeholder. Skipping the check rather than
-    // failing on it: a CI deploy only ever follows a laptop deploy that already ran
-    // `npm run aws:db`, so the hint would not be telling CI anything true anyway.
-    let placeholder = false;
-    if (!ci) {
-      placeholder = true;
-      try {
-        const value = capture(
-          "aws",
-          ["secretsmanager", "get-secret-value", "--secret-id", outputs.AppDatabaseUrlSecretArn, "--query", "SecretString", "--output", "text"],
-          { env: context.env },
-        );
-        placeholder = value === APP_SECRET_PLACEHOLDER;
-      } catch {
-        // If the secret cannot be read, assume it still needs setting up.
-      }
-    }
-
     console.log(`\n✓ Deployed ${tag}.\n\n  Site:      ${outputs.ServiceUrl}`);
-    if (placeholder) {
-      console.log(
-        "\n  The database has no tables and the app has no login yet, so the site will show errors" +
-          "\n  until you run:\n\n    npm run aws:db\n",
-      );
+
+    // CI stops here: DeployRole cannot reach the database or read its credentials, by
+    // design (see the file header). The workflow's separate `migrate` job picks this up,
+    // using MigrateRole instead, only when this push touched drizzle/.
+    //
+    // A laptop that still has an admin IP rule can reach the database — the step above
+    // just made sure of it — so it finishes the job itself rather than leaving a second
+    // command to remember. Safe to run every time: migrations apply only what is new,
+    // table permissions are just re-asserted, and the events/roster load only when the
+    // database has none. Skipped, not attempted and left to fail, when this deploy left
+    // no admin IP allowed through (--no-admin-ip, or address detection failed): there is
+    // nothing this machine could reach right now regardless.
+    if (!ci && adminIp) {
+      run("npx", ["tsx", "scripts/aws-db.ts"], { cwd: ROOT, env: context.env });
+    } else if (!ci) {
+      console.log("\n  No admin IP is allowed through this time, so the database step was skipped.\n  Run `npm run aws:db` once this machine can reach it again.");
     }
   } finally {
     rmSync(scratch, { recursive: true, force: true });

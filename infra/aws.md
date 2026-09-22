@@ -19,7 +19,9 @@ your laptop ──docker push──▶ ECR ──▶ App Runner ──(VPC conne
 
 Infrastructure is AWS CDK in `infra/cdk`, a package of its own, so none of it reaches the
 app's dependencies or its Docker image. Two scripts drive it: `scripts/deploy.ts` and
-`scripts/aws-db.ts`.
+`scripts/aws-db.ts`. `scripts/deploy.ts` runs `aws-db.ts` itself at the end of a laptop
+deploy — there is no second command to remember, see *Deploying from GitHub* for why this
+is not quite as simple in CI.
 
 ## First deploy
 
@@ -28,17 +30,15 @@ You need the AWS CLI signed in, and Docker running.
 ```bash
 aws login                          # or: aws sso login
 npm run deploy -- --bootstrap      # once per account and region
-npm run aws:db                     # tables, the app's database login, the events and roster
 ```
 
 `--bootstrap` runs `cdk bootstrap`, which creates a small staging bucket and some roles that
 CDK itself needs. Leave it off on every later deploy.
 
-The first deploy takes 10 to 15 minutes, nearly all of it Aurora. The script ends by printing
-the site's address (`https://<something>.us-east-1.awsapprunner.com`). Until `npm run aws:db`
-has run, the site loads but its pages error, because the database is empty and the app has
-no login to it. `aws:db` fixes both, restarts the app, and finishes by checking that
-`/leaderboard` answers.
+The first deploy takes 10 to 15 minutes, nearly all of it Aurora. `deploy.ts` finishes by
+running `aws-db.ts` itself: tables, the app's database login, the events and roster, then a
+restart and a check that `/leaderboard` answers. The site's address
+(`https://<something>.us-east-1.awsapprunner.com`) is printed before that final step.
 
 The region is `us-east-1` unless `AWS_REGION` says otherwise or your AWS CLI has one
 configured.
@@ -46,8 +46,7 @@ configured.
 ## Every deploy after that
 
 ```bash
-npm run deploy                     # build, push, update
-npm run aws:db                     # only when a migration was added
+npm run deploy                     # build, push, update, migrate — one command
 ```
 
 `npm run deploy -- --dry-run` checks your session and says what it would do, changing nothing.
@@ -58,47 +57,67 @@ Images are tagged with the git commit. Deploying the same clean commit twice reu
 already in the registry. A working tree with uncommitted changes gets a `-dirty-<timestamp>`
 tag each time, since the same commit id would then mean different code.
 
-`aws:db` is safe to repeat. Migrations apply only what is new, the app's permissions are
+The database step (`aws-db.ts`) is safe to repeat and runs every time, whether or not this
+deploy added a migration: migrations apply only what is new, the app's permissions are
 re-asserted, and the events and roster are loaded **only if there are no events yet**. To
 reload them on purpose (this resets event names, descriptions and benchmarks to what is in
-`scripts/seed.ts`, and adds back any seed athlete removed from the roster), pass `--seed`.
-`--with-results` also loads the sample scores; that is for a demo, never the real event.
+`scripts/seed.ts`, and adds back any seed athlete removed from the roster), run
+`npm run aws:db -- --seed` separately. `--with-results` also loads the sample scores; that
+is for a demo, never the real event.
 
 ## Deploying from GitHub
 
-A push to `main` deploys automatically — `.github/workflows/deploy.yml` runs the tests, then
-`npm run deploy -- --ci`, the same script you'd run by hand. `dev` is where you work; merging
-to `main` ships.
+A push to `main` deploys automatically — `dev` is where you work; merging to `main` ships.
+`.github/workflows/deploy.yml` runs the tests, then two jobs:
 
-**Identity, not keys.** The workflow authenticates as `rva4neva-olympics-github-deploy`
-(`infra/cdk/lib/ci-stack.ts`), an IAM role assumed over OIDC. No AWS key lives in GitHub.
-The role's trust policy checks the token GitHub mints for the job against one exact string —
+- **`deploy`** always runs: `npm run deploy -- --ci`, the same script a laptop runs, as
+  `rva4neva-olympics-github-deploy`.
+- **`migrate`** runs only when the push touched `drizzle/` (checked by diffing the push
+  against what was running before it — see the workflow file): `npm run aws:db -- --ci`, as
+  a *different* role, `rva4neva-olympics-github-migrate`.
+
+**Why two roles, not one.** `deploy`'s role cannot read the database's credentials or reach
+it at all — a compromised dependency pulled in during an ordinary code deploy is limited to
+shipping bad app code, not touching the database directly. `migrate`'s role can do both, but
+only exists to, and only runs when a push actually changes the schema — which, on this
+project, is rare. See `infra/cdk/lib/ci-stack.ts` for the exact permissions each gets.
+
+**Identity, not keys, for both.** Each role is assumed over OIDC: GitHub mints a short-lived
+token for the job, and the role's trust policy checks it against one exact string —
 `repo:brothabear77/rva4neva-olympics:ref:refs/heads/main` — so a workflow run for a pull
 request, a fork, or any other branch is refused before it can call AWS at all.
 
-**The one thing `--ci` changes: where the admin IP comes from.** A laptop deploy detects your
-machine's address and saves it to SSM (`/rva4neva-olympics/admin-ip`); a CI deploy reads that
-saved value back instead of detecting its own. Without this, every CI deploy would swap your
-home address for the runner's — a different, unreachable one each time — and you'd lose
-`psql` and `npm run aws:db` access until your next laptop deploy overwrote it again.
-Practically: **the admin IP only ever changes from your laptop.** A CI-only deploy never
-touches the database's security group rule.
+**`--ci` changes where the admin IP comes from, for `deploy`.** A laptop run detects your
+machine's address and saves it to SSM (`/rva4neva-olympics/admin-ip`); a CI `deploy` reads
+that saved value back instead of detecting its own — a GitHub runner's address is different
+every time and reaching nothing you'd ever want to reach directly. Without this, a CI deploy
+would overwrite your saved address with an unreachable one and you'd lose `psql` access until
+your next laptop deploy restored it. Practically: **the admin IP only ever changes from your
+laptop.**
 
-**Migrations stay manual.** `npm run aws:db` connects straight to Aurora, and the database
-only admits the app's security group and that one admin IP — a GitHub runner is neither, and
-opening the firewall to GitHub's address ranges would undo the point of having one. So when a
-change adds a migration, run `npm run aws:db` from your laptop **before** merging it. This
-project's migrations are additive, so the old code running against the new schema for a few
-minutes is harmless; new code running against a schema that hasn't been migrated yet is not.
+**`--ci` means something different for `migrate`: open a rule, use it, close it again.** The
+database only ever admits the app, one admin IP, and — for the few minutes a `migrate` job
+runs — that job's own runner address, added and removed by the job itself
+(`authorizeTemporaryIngress`/`revokeTemporaryIngress` in `scripts/aws-db.ts`). It never
+touches the persisted admin-ip rule. If a job is killed mid-run, its temporary rule can be
+left behind; `aws-db.ts` warns with the exact `aws ec2 revoke-security-group-ingress` command
+to remove it by hand.
 
-**Setup, done once:**
+**Column renames are still a real, if brief, exception.** `migrate` runs after `deploy`, in
+the same workflow run, so a migration that only adds something (a column, a table) is
+harmless either order — old code ignores a column it doesn't know about yet. A rename or
+drop is breaking in both directions for the short window between the two jobs finishing;
+nothing here makes that instantaneous, it just replaces "however long a human takes to
+notice and run `aws:db` by hand" with "however long the next job in the same run takes."
+
+**Setup, done once, and again whenever `ci-stack.ts` changes:**
 
 ```bash
 cd infra/cdk && npx cdk deploy OlympicsCi
 ```
 
-Creates the role above. CI cannot create the role it needs in order to run, so this one stack
-is always deployed by hand.
+Creates or updates both roles above. CI cannot create the roles it needs in order to run, so
+this one stack is always deployed by hand.
 
 **If a CI deploy fails**, the same log locations and failure modes apply as any other deploy —
 see *When a deploy fails*, below. One CI-specific case: if `/rva4neva-olympics/admin-ip` was
@@ -121,8 +140,8 @@ npm run deploy -- --admin-ip=203.0.113.7
 The database is "publicly accessible", meaning its hostname also resolves to a public address,
 which is what lets you reach it from home. The security group is what keeps everyone else out,
 and it refuses every other address. To close direct access altogether, deploy with
-`npm run deploy -- --no-admin-ip`: then only the app can connect (and `aws:db` cannot run, so
-do that last).
+`npm run deploy -- --no-admin-ip`: then only the app can connect, and `deploy.ts` skips its
+usual automatic `aws-db.ts` step at the end rather than run it knowing it will fail.
 
 The app connects as `olympics_app`, not as the owner. It can read and write scores; it cannot
 change the schema, and it cannot write to `audit.change_log` (the triggers record changes with
