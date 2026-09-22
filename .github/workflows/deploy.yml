@@ -28,6 +28,13 @@ jobs:
         with:
           node-version: "22" # matches node:22-alpine in the Dockerfile
       - run: npm ci
+      # tsconfig.json's include has .next/types/**/*.ts: Next generates a PageProps type per
+      # route (used in src/app/**/page.tsx) into that directory, and only ever writes it as
+      # part of `next build` or `next dev`. A fresh checkout has no .next, so a bare
+      # `tsc --noEmit` fails on every page with "Cannot find name 'PageProps'" — not a real
+      # type error, just missing generated types. `next typegen` writes only that directory,
+      # without a full build or a database connection.
+      - run: npx next typegen
       - run: npx tsc --noEmit
       - run: npm test
       - run: npm ci
