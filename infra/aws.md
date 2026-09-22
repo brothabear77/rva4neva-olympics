@@ -184,6 +184,63 @@ Estimates from memory, not live pricing, so check the AWS pricing pages before r
 There is no NAT gateway (about $32 a month) and no load balancer: the server makes no outbound
 calls of its own, and App Runner brings its own HTTPS front end.
 
+## Custom domain
+
+The site also answers at **www.rva4nevaoly.com** (root `rva4nevaoly.com` redirects there),
+bought outside AWS at GoDaddy. Nothing in the app needed to change — nothing in `src/`
+hardcodes its own URL — so this is entirely AWS and DNS configuration.
+
+**Why the root domain isn't the "real" one.** App Runner hands out a `CNAME` target, and
+standard DNS refuses a `CNAME` at a domain's apex/root — only on a subdomain. GoDaddy has
+no `ALIAS`/`ANAME` record to work around that, so the root can't point at App Runner
+directly. GoDaddy's own answer is **Domain Forwarding**: an HTTP redirect from the root to
+the subdomain that carries the real record. So `www.rva4nevaoly.com` is what App Runner
+actually serves; `rva4nevaoly.com` is a signpost pointing to it.
+
+**How it's associated.** Not through CDK — this CDK version (aws-cdk-lib 2.270) has no
+CloudFormation resource for an App Runner custom domain, so it's a one-time imperative
+step, not part of `scripts/deploy.ts`:
+
+```bash
+aws apprunner associate-custom-domain \
+  --service-arn <ServiceArn from the stack outputs> \
+  --domain-name www.rva4nevaoly.com \
+  --no-enable-www-subdomain
+```
+
+`--no-enable-www-subdomain` matters: without it, App Runner also tries to provision
+`www.www.rva4nevaoly.com` — a real trap, since the flag's default is `true` and it assumes
+you're associating a root domain rather than a subdomain that already starts with `www`.
+
+The command returns a `DNSTarget` (what `www` should `CNAME` to — as of this writing,
+`vh6bk3ptpt.us-east-1.awsapprunner.com`, the same address as the plain App Runner URL) and,
+once status moves past `creating`, a set of `CertificateValidationRecords` — `CNAME`s that
+prove domain ownership to AWS Certificate Manager before it will issue the certificate.
+These are unique to each association and were entered by hand into GoDaddy's DNS manager;
+they aren't reproduced here since redoing the association generates a fresh set. To see the
+current ones:
+
+```bash
+aws apprunner describe-custom-domains --service-arn <ServiceArn>
+```
+
+**Check status:**
+
+```bash
+aws apprunner describe-custom-domains --service-arn <ServiceArn> \
+  --query 'CustomDomains[0].[DomainName,Status]'
+```
+
+Goes `creating` → `pending_certificate_dns_validation` → `active`, the last step happening
+on its own once GoDaddy's records are live and AWS Certificate Manager can see them — DNS
+propagation is usually minutes, occasionally up to an hour. Once `active`, AWS manages the
+certificate's renewal the same as it does for the default `awsapprunner.com` address —
+nothing to maintain here.
+
+**To remove it:** `aws apprunner disassociate-custom-domain --service-arn <ServiceArn>
+--domain-name www.rva4nevaoly.com`, then delete the three records and the forwarding rule in
+GoDaddy.
+
 ## Design notes
 
 - **Public subnets.** Reaching Aurora from a laptop needs a route to the internet, so the subnets
@@ -267,7 +324,5 @@ aws secretsmanager delete-secret --secret-id rva4neva/app-database-url --force-d
 
 ## Not set up
 
-- **A custom domain.** App Runner can attach one, with a managed certificate, without rebuilding
-  anything here.
 - **Branch protection requiring the `test` job to pass before a merge.** That's a GitHub
   repository setting, not a file here.
