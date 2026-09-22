@@ -1,0 +1,20 @@
+{
+  "name": "rva4neva-olympics-infra",
+  "private": true,
+  "description": "AWS infrastructure for the #rva4neva Olympics site. Deliberately a separate package: nothing here is needed to run the app, and it must stay out of the app's dependencies and its Docker image.",
+  "scripts": {
+    "synth": "cdk synth",
+    "diff": "cdk diff",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2",
+    "constructs": "^10"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "aws-cdk": "^2",
+    "tsx": "^4",
+    "typescript": "^5"
+  }
+}

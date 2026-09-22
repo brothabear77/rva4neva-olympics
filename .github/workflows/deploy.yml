@@ -1,0 +1,59 @@
+name: Deploy
+
+# Every push to main ships to production, docs-only commits included: "main is what is
+# running" stays literally true, rather than true only for commits someone remembered to
+# tag. workflow_dispatch is there so a deploy can be re-run by hand without an empty commit.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write # required to mint the OIDC token AWS trusts
+  contents: read
+
+concurrency:
+  # App Runner refuses a second operation on a service while one is in flight. Two merges
+  # in quick succession queue instead of colliding, and cancel-in-progress stays false so a
+  # deploy already underway is never abandoned mid-way.
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22" # matches node:22-alpine in the Dockerfile
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm ci
+        working-directory: infra/cdk
+      - run: npx tsc --noEmit
+        working-directory: infra/cdk
+      - run: npx cdk synth
+        working-directory: infra/cdk
+        env:
+          JSII_SILENCE_WARNING_UNTESTED_NODE_VERSION: "1"
+          CDK_DISABLE_VERSION_CHECK: "1"
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # No access key: this assumes rva4neva-olympics-github-deploy (infra/cdk/lib/ci-stack.ts),
+      # which trusts only a GitHub-issued token that says "push to main, this repository".
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::737695750939:role/rva4neva-olympics-github-deploy
+          aws-region: us-east-1
+          role-session-name: github-actions-deploy
+      - run: npm ci
+      - run: npm run deploy -- --ci
