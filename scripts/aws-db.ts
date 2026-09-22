@@ -9,12 +9,14 @@ import {
   SITE_STACK,
   awsContext,
   capture,
+  detectPublicIp,
   fail,
   flag,
   messageOf,
   run,
   step,
   stackOutputs,
+  type AwsContext,
 } from "./aws";
 
 /**
@@ -25,12 +27,19 @@ import {
  *   npm run aws:db -- --with-results    same, plus sample scores (for a demo; not for the real event)
  *
  * Safe to run again: migrations only apply what is new, the app's login and permissions are
- * re-asserted, and the seed runs by itself only when the database has no events. Run it after
- * any change that adds a migration.
+ * re-asserted, and the seed runs by itself only when the database has no events. deploy.ts
+ * runs it after every laptop deploy for exactly this reason — there is no second command to
+ * remember.
  *
- * It runs from your machine, as the database owner, which is why the database allows your
- * IP address in. The app never gets those credentials: it gets a second login that can read
- * and write scores but cannot change the schema or rewrite the history.
+ * It runs as the database owner, which is why the database has to let the caller's IP address
+ * in first. The app never gets those credentials: it gets a second login that can read and
+ * write scores but cannot change the schema or rewrite the history.
+ *
+ * --ci is how the workflow's `migrate` job runs this: it opens the database's firewall to
+ * that job's own runner IP just long enough to do the work, as MigrateRole, then closes it
+ * again — the same admin-ip idea a laptop uses, scoped to one job instead of left open. A
+ * laptop never passes --ci; it already has a standing admin-ip rule from its last deploy, so
+ * it goes straight to the tables. --ci is implied by GITHUB_ACTIONS=true, same as deploy.ts.
  */
 
 const APP_ROLE = "olympics_app";
@@ -59,6 +68,31 @@ function existingAppPassword(secretValue: string): string | undefined {
     return url.username === APP_ROLE && url.password ? decodeURIComponent(url.password) : undefined;
   } catch {
     return undefined;
+  }
+}
+
+/** Let one IPv4 address reach the database on 5432. Used only for a CI run's own, short-lived rule. */
+function authorizeTemporaryIngress(env: NodeJS.ProcessEnv, groupId: string, ip: string) {
+  capture(
+    "aws",
+    ["ec2", "authorize-security-group-ingress", "--group-id", groupId, "--protocol", "tcp", "--port", "5432", "--cidr", `${ip}/32`],
+    { env },
+  );
+}
+
+/** Undo {@link authorizeTemporaryIngress}. Best-effort: a run that dies mid-way should not leave the caller stuck. */
+function revokeTemporaryIngress(env: NodeJS.ProcessEnv, groupId: string, ip: string) {
+  try {
+    capture(
+      "aws",
+      ["ec2", "revoke-security-group-ingress", "--group-id", groupId, "--protocol", "tcp", "--port", "5432", "--cidr", `${ip}/32`],
+      { env },
+    );
+  } catch (error) {
+    console.warn(
+      `  Could not remove the temporary rule for ${ip}/32 (${messageOf(error)}).\n` +
+        `  Remove it by hand: aws ec2 revoke-security-group-ingress --group-id ${groupId} --protocol tcp --port 5432 --cidr ${ip}/32`,
+    );
   }
 }
 
@@ -91,6 +125,8 @@ async function connectAsOwner(master: MasterSecret): Promise<Client> {
 }
 
 async function main() {
+  const ci = flag("ci") || process.env.GITHUB_ACTIONS === "true";
+
   step("Checking your AWS session");
   const context = awsContext();
   console.log(`  account ${context.account}, region ${context.region}`);
@@ -99,6 +135,30 @@ async function main() {
   const outputs = stackOutputs(context, SITE_STACK);
   if (!outputs.DatabaseEndpoint) fail(`The ${SITE_STACK} stack is not deployed here yet. Run \`npm run deploy\` first.`);
 
+  // A laptop already has a standing admin-ip rule from its last `npm run deploy`. CI has
+  // nothing: MigrateRole can read the database's credentials but the database itself still
+  // refuses the connection until this run's own IP is let in, just for this run.
+  let ciIp: string | undefined;
+  if (ci) {
+    step("Opening the database to this run");
+    if (!outputs.DatabaseSecurityGroupId) fail(`${SITE_STACK} has no DatabaseSecurityGroupId output. Redeploy the site stack first.`);
+    ciIp = await detectPublicIp();
+    if (!ciIp) fail("Could not work out this runner's own IP address, so there is nothing safe to add to the database's firewall.");
+    authorizeTemporaryIngress(context.env, outputs.DatabaseSecurityGroupId, ciIp);
+    console.log(`  ${ciIp}, for this run only`);
+  }
+
+  try {
+    await migrateAndRestart(context, outputs);
+  } finally {
+    if (ci && ciIp) {
+      step("Closing the database again");
+      revokeTemporaryIngress(context.env, outputs.DatabaseSecurityGroupId!, ciIp);
+    }
+  }
+}
+
+async function migrateAndRestart(context: AwsContext, outputs: Record<string, string>) {
   const secret = (id: string) =>
     capture("aws", ["secretsmanager", "get-secret-value", "--secret-id", id, "--query", "SecretString", "--output", "text"], {
       env: context.env,
