@@ -18,7 +18,7 @@ export interface GuideEvent {
   rules: string[];
   media: ResolvedMedia | null;
   /** Null when the event's two benchmarks are equal and it has no scale yet. */
-  scale: { top: string; zero: string; lowerIsBetter: boolean; ladder: LadderStep[] } | null;
+  scale: { top: string; zero: string; ladder: LadderStep[] } | null;
 }
 
 /**
@@ -141,9 +141,8 @@ export function EventGuide({ events, initialSlug }: { events: GuideEvent[]; init
               {current.scale ? (
                 <>
                   <p className="text-sm leading-relaxed text-muted">
-                    Points run in a straight line between two marks.{" "}
-                    {current.scale.lowerIsBetter ? "Lower is better here." : "Higher is better here."} Beating the
-                    top mark scores over 100, and nothing scores below 0.
+                    Points run in a straight line between two marks. Beating the top mark
+                    scores over 100, and nothing scores below 0.
                   </p>
 
                   <dl className="mt-4 grid grid-cols-2 gap-3">

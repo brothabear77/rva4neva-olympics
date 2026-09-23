@@ -84,7 +84,7 @@ export function EventMedia({ media }: { media: ResolvedMedia | null }) {
           </video>
         ) : playing ? (
           <iframe
-            src={`https://www.youtube-nocookie.com/embed/${media.id}?autoplay=1&rel=0`}
+            src={`https://www.youtube-nocookie.com/embed/${media.id}?autoplay=1&rel=0${media.start ? `&start=${media.start}` : ""}`}
             title={media.label}
             allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
             allowFullScreen
@@ -106,7 +106,6 @@ export function EventMedia({ media }: { media: ResolvedMedia | null }) {
                 <path d="M8 5.6v12.8a.6.6 0 0 0 .9.5l10.4-6.4a.6.6 0 0 0 0-1L8.9 5.1a.6.6 0 0 0-.9.5z" fill="currentColor" />
               </svg>
             </span>
-            <span className="relative text-xs text-muted">Loads from YouTube when you press play</span>
           </button>
         )}
       </div>

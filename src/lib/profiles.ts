@@ -171,6 +171,18 @@ const YOUTUBE_HOSTS = new Set([
   "www.youtu.be",
 ]);
 
+/** A YouTube link, parsed and host-checked — or null if it is not one. Shared by youtubeId and youtubeStart. */
+function parseYoutubeUrl(text: string): URL | null {
+  let url: URL;
+  try {
+    url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `https://${text}`);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  return YOUTUBE_HOSTS.has(url.hostname.toLowerCase()) ? url : null;
+}
+
 /**
  * The video id in a YouTube link, or null if it is not one. Copied links come in
  * many shapes — watch?v=, youtu.be/, /embed/, /shorts/, /live/, with tracking
@@ -181,14 +193,8 @@ export function youtubeId(input: string | undefined): string | null {
   if (!text) return null;
   if (YOUTUBE_ID.test(text)) return text;
 
-  let url: URL;
-  try {
-    url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `https://${text}`);
-  } catch {
-    return null;
-  }
-  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
-  if (!YOUTUBE_HOSTS.has(url.hostname.toLowerCase())) return null;
+  const url = parseYoutubeUrl(text);
+  if (!url) return null;
 
   const segments = url.pathname.split("/").filter(Boolean);
   let id: string | undefined;
@@ -198,6 +204,35 @@ export function youtubeId(input: string | undefined): string | null {
   else if (["embed", "shorts", "live", "v"].includes(segments[0])) id = segments[1];
 
   return id && YOUTUBE_ID.test(id) ? id : null;
+}
+
+/** "90", "90s", "1m30s" or "1h2m3s" to whole seconds. Null if it is not one of those shapes. */
+function parseTimestamp(raw: string): number | null {
+  if (/^\d+$/.test(raw)) return Number(raw);
+  const match = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(raw);
+  if (!match || !(match[1] || match[2] || match[3])) return null;
+  const [, h, m, s] = match;
+  return Number(h ?? 0) * 3600 + Number(m ?? 0) * 60 + Number(s ?? 0);
+}
+
+/**
+ * Seconds into the video a YouTube link asks to start at — from its "t" (the
+ * param a watch or youtu.be link gets from the Share button, or from "Copy video
+ * URL at current time") or "start" (what an /embed/ link already uses) query
+ * parameter. Null if the link has neither, or is not a YouTube link at all.
+ */
+export function youtubeStart(input: string | undefined): number | null {
+  const text = clean(input);
+  if (!text) return null;
+
+  const url = parseYoutubeUrl(text);
+  if (!url) return null;
+
+  const raw = url.searchParams.get("t") ?? url.searchParams.get("start");
+  if (!raw) return null;
+
+  const seconds = parseTimestamp(raw);
+  return seconds && seconds > 0 ? seconds : null;
 }
 
 interface MediaBase {
@@ -210,7 +245,7 @@ export type ResolvedMedia =
   | (MediaBase & { kind: "image"; src: string })
   | (MediaBase & { kind: "gif"; src: string })
   | (MediaBase & { kind: "video"; src: string; poster?: string })
-  | (MediaBase & { kind: "youtube"; id: string; poster?: string });
+  | (MediaBase & { kind: "youtube"; id: string; start?: number; poster?: string });
 
 /** Work out what a media entry is. Null when there is nothing usable to show. */
 export function resolveMedia(input: MediaInput | undefined): ResolvedMedia | null {
@@ -221,7 +256,7 @@ export function resolveMedia(input: MediaInput | undefined): ResolvedMedia | nul
   const poster = clean(input.poster);
 
   const id = youtubeId(input.youtube);
-  if (id) return { kind: "youtube", id, poster, ...base };
+  if (id) return { kind: "youtube", id, start: youtubeStart(input.youtube) ?? undefined, poster, ...base };
 
   const src = clean(input.src);
   if (!src) return null;

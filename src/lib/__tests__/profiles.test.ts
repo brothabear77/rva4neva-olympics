@@ -8,6 +8,7 @@ import {
   resolveMedia,
   scoreLadder,
   youtubeId,
+  youtubeStart,
 } from "../profiles";
 
 describe("youtubeId", () => {
@@ -71,6 +72,38 @@ describe("youtubeId", () => {
   });
 });
 
+describe("youtubeStart", () => {
+  const ID = "dQw4w9WgXcQ";
+
+  it("reads a plain number of seconds from t= or start=", () => {
+    expect(youtubeStart(`https://youtu.be/${ID}?t=90`)).toBe(90);
+    expect(youtubeStart(`https://www.youtube.com/embed/${ID}?start=90`)).toBe(90);
+  });
+
+  it("reads YouTube's 1h2m3s shape, in any combination", () => {
+    expect(youtubeStart(`https://youtu.be/${ID}?t=1h2m3s`)).toBe(3723);
+    expect(youtubeStart(`https://youtu.be/${ID}?t=1m30s`)).toBe(90);
+    expect(youtubeStart(`https://youtu.be/${ID}?t=90s`)).toBe(90);
+    expect(youtubeStart(`https://youtu.be/${ID}?t=2h`)).toBe(7200);
+  });
+
+  it("ignores other query parameters, like a share link's si=", () => {
+    expect(youtubeStart(`https://youtu.be/${ID}?si=abc123&t=10s`)).toBe(10);
+  });
+
+  it("returns null with no timestamp, a zero one, or something unreadable", () => {
+    expect(youtubeStart(`https://youtu.be/${ID}`)).toBeNull();
+    expect(youtubeStart(`https://youtu.be/${ID}?t=0`)).toBeNull();
+    expect(youtubeStart(`https://youtu.be/${ID}?t=nonsense`)).toBeNull();
+  });
+
+  it("returns null for anything that is not a YouTube link", () => {
+    expect(youtubeStart(ID)).toBeNull();
+    expect(youtubeStart("https://vimeo.com/12345678?t=90")).toBeNull();
+    expect(youtubeStart(undefined)).toBeNull();
+  });
+});
+
 describe("resolveMedia", () => {
   it("tells photo, GIF and video apart by extension", () => {
     expect(resolveMedia({ src: "/events/a.jpg" })?.kind).toBe("image");
@@ -102,6 +135,13 @@ describe("resolveMedia", () => {
   it("prefers a YouTube link over a file when both are given", () => {
     const media = resolveMedia({ youtube: "https://youtu.be/dQw4w9WgXcQ", src: "/events/a.mp4" });
     expect(media).toMatchObject({ kind: "youtube", id: "dQw4w9WgXcQ" });
+  });
+
+  it("carries a t= timestamp as start, only where the link has one", () => {
+    const withStart = resolveMedia({ youtube: "https://youtu.be/dQw4w9WgXcQ?t=90" });
+    const withoutStart = resolveMedia({ youtube: "https://youtu.be/dQw4w9WgXcQ" });
+    expect(withStart).toMatchObject({ start: 90 });
+    expect(withoutStart?.kind === "youtube" ? withoutStart.start : "wrong kind").toBeUndefined();
   });
 
   it("falls back to the file when the YouTube link cannot be read", () => {

@@ -24,7 +24,7 @@ const EVENTS = [
   {
     slug: "vertical-jump", name: "Vertical Jump", day: 1, sortOrder: 2,
     unitLabel: "in", decimals: 1, benchmarkStandard: 36, benchmarkZero: 0,
-    description: "Standing reach, then the best of three jumps.",
+    description: "Measured jump by yardstick, best of three jumps.",
   },
   {
     slug: "shuttle-run", name: "Shuttle Run", day: 1, sortOrder: 3,
@@ -34,12 +34,12 @@ const EVENTS = [
   {
     slug: "jump-rope", name: "Jump Rope", day: 1, sortOrder: 4,
     unitLabel: "reps", decimals: 0, benchmarkStandard: 120, benchmarkZero: 0,
-    description: "Consecutive jumps, unbroken. One minute cap.",
+    description: "Most jumps in 30 seconds.",
   },
   {
     slug: "med-ball-toss", name: "Med Ball Toss", day: 1, sortOrder: 5,
     unitLabel: "m", decimals: 1, benchmarkStandard: 25, benchmarkZero: 0,
-    description: "Overhead, two hands, best of three throws.",
+    description: "15lb med ball, best of three throws.",
   },
   {
     slug: "farmers-walk", name: "Farmer's Walk", day: 1, sortOrder: 6,

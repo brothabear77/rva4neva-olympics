@@ -6,7 +6,7 @@ import { EVENT_GUIDES } from "@/content/events";
 import { mediaProblem, mergeEventGuides, resolveMedia, scoreLadder } from "@/lib/profiles";
 import { isLocalDev, publicFileMissing } from "@/lib/publicFiles";
 import { getEventsForForm } from "@/lib/queries";
-import { formatMeasurement, isLowerBetter, isScorable } from "@/lib/scoring";
+import { formatMeasurement, isScorable } from "@/lib/scoring";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +34,6 @@ export default async function EventGuidePage(props: PageProps<"/info/events-guid
         ? {
             top: mark(event.benchmarkStandard),
             zero: mark(event.benchmarkZero),
-            lowerIsBetter: isLowerBetter(event),
             ladder: scoreLadder(event, event.decimals, event.unitLabel),
           }
         : null,

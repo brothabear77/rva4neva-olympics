@@ -4,7 +4,7 @@ import { BenchmarkForm } from "@/components/BenchmarkForm";
 import { DeleteResultButton } from "@/components/DeleteResultButton";
 import { DayTag, EmptyState, PageHeader, RankBadge, Stat } from "@/components/ui";
 import { getEventBySlug, getEventResults } from "@/lib/queries";
-import { describeScale, formatMeasurement, isLowerBetter } from "@/lib/scoring";
+import { describeScale, formatMeasurement } from "@/lib/scoring";
 
 export const dynamic = "force-dynamic";
 
@@ -42,9 +42,6 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <DayTag day={event.day} />
-        <span className="eyebrow rounded border border-[var(--edge)] px-2 py-1">
-          {isLowerBetter(event) ? "Lower is better" : "Higher is better"}
-        </span>
         <span className="eyebrow rounded border border-[var(--edge)] px-2 py-1">
           Measured in {event.unitLabel || "units"}
         </span>
