@@ -18,42 +18,42 @@ import { scoreResult } from "../src/lib/scoring";
 const EVENTS = [
   {
     slug: "50m-swim", name: "50m Swim", day: 1, sortOrder: 1,
-    unitLabel: "s", decimals: 2, benchmarkStandard: 35, benchmarkZero: 70,
+    unitLabel: "s", decimals: 2, benchmarkStandard: 25, benchmarkZero: 75,
     description: "One length, timed. Any stroke.",
   },
   {
     slug: "vertical-jump", name: "Vertical Jump", day: 1, sortOrder: 2,
-    unitLabel: "in", decimals: 1, benchmarkStandard: 24, benchmarkZero: 6,
+    unitLabel: "in", decimals: 1, benchmarkStandard: 36, benchmarkZero: 0,
     description: "Standing reach, then the best of three jumps.",
   },
   {
     slug: "shuttle-run", name: "Shuttle Run", day: 1, sortOrder: 3,
-    unitLabel: "s", decimals: 2, benchmarkStandard: 4.5, benchmarkZero: 7.5,
+    unitLabel: "s", decimals: 2, benchmarkStandard: 4.5, benchmarkZero: 9,
     description: "Five yards, turn, ten back, turn, five home. Timed.",
   },
   {
     slug: "jump-rope", name: "Jump Rope", day: 1, sortOrder: 4,
-    unitLabel: "reps", decimals: 0, benchmarkStandard: 150, benchmarkZero: 10,
+    unitLabel: "reps", decimals: 0, benchmarkStandard: 120, benchmarkZero: 0,
     description: "Consecutive jumps, unbroken. One minute cap.",
   },
   {
     slug: "med-ball-toss", name: "Med Ball Toss", day: 1, sortOrder: 5,
-    unitLabel: "ft", decimals: 1, benchmarkStandard: 35, benchmarkZero: 10,
+    unitLabel: "m", decimals: 1, benchmarkStandard: 25, benchmarkZero: 0,
     description: "Overhead, two hands, best of three throws.",
   },
   {
     slug: "farmers-walk", name: "Farmer's Walk", day: 1, sortOrder: 6,
-    unitLabel: "s", decimals: 1, benchmarkStandard: 20, benchmarkZero: 60,
-    description: "A weight in each hand, timed over a fixed course.",
+    unitLabel: "m", decimals: 1, benchmarkStandard: 400, benchmarkZero: 0,
+    description: "A weight in each hand, furthest distance without stopping.",
   },
   {
     slug: "stick-drop", name: "Stick Drop Game", day: 2, sortOrder: 1,
-    unitLabel: "in", decimals: 1, benchmarkStandard: 2, benchmarkZero: 12,
-    description: "Reaction time: how far the stick falls before it's caught.",
+    unitLabel: "sticks", decimals: 0, benchmarkStandard: 15, benchmarkZero: 0,
+    description: "Reaction time: how many sticks you can catch",
   },
   {
     slug: "100m-run", name: "100m Run", day: 2, sortOrder: 2,
-    unitLabel: "s", decimals: 2, benchmarkStandard: 12.5, benchmarkZero: 20,
+    unitLabel: "s", decimals: 2, benchmarkStandard: 11, benchmarkZero: 25,
     description: "One sprint, timed.",
   },
   {
@@ -63,13 +63,13 @@ const EVENTS = [
   },
   {
     slug: "broad-jump", name: "Broad Jump", day: 2, sortOrder: 4,
-    unitLabel: "ft", decimals: 1, benchmarkStandard: 9, benchmarkZero: 4,
+    unitLabel: "m", decimals: 1, benchmarkStandard: 3.5, benchmarkZero: 0,
     description: "Standing start, both feet, best of three jumps.",
   },
   {
     slug: "mile-run", name: "Mile Run", day: 2, sortOrder: 5,
-    unitLabel: "s", decimals: 0, benchmarkStandard: 390, benchmarkZero: 720,
-    description: "One mile, timed. Entered in seconds (6:30 = 390).",
+    unitLabel: "s", decimals: 0, benchmarkStandard: 300, benchmarkZero: 720,
+    description: "One mile, timed. Entered in seconds (5:00 = 300).",
   },
 ] as const;
 
@@ -92,7 +92,7 @@ const SAMPLE: Array<[string, string, number]> = [
   ["shuttle-run", "Ahmed", 5.8],
   ["jump-rope", "Nick", 88], ["jump-rope", "Ashley", 104],
   ["jump-rope", "Allen", 62], ["jump-rope", "Mohit", 71],
-  ["med-ball-toss", "Mena", 24.0], ["med-ball-toss", "Marco", 28.5],
+  ["med-ball-toss", "Mena", 24.0], ["med-ball-toss", "Marco", 24.5],
   ["med-ball-toss", "Ahmed", 19.5],
 ];
 
