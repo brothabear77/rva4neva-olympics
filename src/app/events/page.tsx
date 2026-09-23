@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { DayTag, EmptyState, PageHeader } from "@/components/ui";
 import { getEventSummaries } from "@/lib/queries";
-import { describeScale, formatMeasurement, isLowerBetter } from "@/lib/scoring";
+import { describeScale, formatMeasurement } from "@/lib/scoring";
 import { SITE } from "@/lib/site";
 import { formatEventDate } from "@/lib/time";
 
@@ -71,9 +71,6 @@ export default async function EventsPage() {
 
                         <p className="tnum mt-3 text-xs text-muted">
                           {describeScale(event, event.decimals, event.unitLabel)}
-                          <span className="ml-2 text-muted/70">
-                            ({isLowerBetter(event) ? "lower is better" : "higher is better"})
-                          </span>
                         </p>
 
                         <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--edge)] pt-3">

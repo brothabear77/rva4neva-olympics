@@ -166,6 +166,14 @@ Names and slugs are matched ignoring case. While you run the site locally, a not
 appears if an entry matches nobody, a link can't be read as YouTube, or a file isn't
 where you said it is, so a typo doesn't just make something silently not show.
 
+Replacing a photo, GIF or video **in place** (same filename, new content) may not show
+the new one, even after a hard refresh or an incognito window: Turbopack's dev cache
+(`.next/cache/turbopack`, tens of megabytes, persisted to disk) can hold onto the old
+resized output for that file path. Restarting `next dev` alone does **not** clear it —
+that cache is reloaded from disk on startup, not rebuilt. Give the new file a different
+name (and update the reference) to sidestep it entirely, or, if you want to keep the
+name, stop the server and run `rm -rf .next/cache/turbopack` before starting it again.
+
 The competitive **Events** tab (standings, leaders) and this guide link to each other.
 
 ## CSV format

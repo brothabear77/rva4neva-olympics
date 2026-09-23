@@ -5,7 +5,7 @@ import { EVENT_TIME_ZONE, zonedTimeToUtc } from "./time";
  * UTC offset. The offset for that date (EDT or EST) is worked out below, so
  * moving the date across a clock change cannot leave it an hour off.
  */
-const STARTS_AT_LOCAL = "2027-09-10T10:00";
+const STARTS_AT_LOCAL = "2027-09-04T07:00";
 
 /** Event-wide settings. Adjust these once you lock the real dates. */
 export const SITE = {
@@ -17,8 +17,8 @@ export const SITE = {
   /** The same moment as an absolute UTC instant. Drives the homepage countdown. */
   startsAt: zonedTimeToUtc(STARTS_AT_LOCAL).toISOString(),
   days: [
-    { day: 1, label: "Day One", date: "2027-09-10" },
-    { day: 2, label: "Day Two", date: "2027-09-11" },
+    { day: 1, label: "Day One", date: "2027-09-04" },
+    { day: 2, label: "Day Two", date: "2027-09-05" },
   ],
 } as const;
 
