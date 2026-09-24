@@ -11,7 +11,7 @@ const oswald = Oswald({ variable: "--font-oswald", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    default: `${SITE.name} — Live Scoreboard`,
+    default: `${SITE.name}`,
     template: `%s · ${SITE.shortName}`,
   },
   description: SITE.tagline,
