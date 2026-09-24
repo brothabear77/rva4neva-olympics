@@ -6,14 +6,14 @@
      surface #34312d  cards and raised panels
      muted   #7e7f83  secondary text, borders, dividers
      paper   #f3f3f4  primary text
-     accent  #dcedff  the one highlight color: links, active tab, leaders
+     accent  #ddc53b  the one highlight color: links, active tab, leaders
 --------------------------------------------------------------------------- */
 @theme {
   --color-ink: #14110f;
   --color-surface: #34312d;
   --color-muted: #7e7f83;
   --color-paper: #f3f3f4;
-  --color-accent: #dcedff;
+  --color-accent: #ddc53b;
 
   --font-display: var(--font-oswald), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;

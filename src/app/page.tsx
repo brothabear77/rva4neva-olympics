@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Countdown } from "@/components/Countdown";
 import { QuoteCarousel } from "@/components/QuoteCarousel";
@@ -17,11 +18,7 @@ export default async function HomePage() {
   if (!hasStarted()) {
     return (
       <section className="flex min-h-[60vh] flex-col items-center justify-center gap-10 text-center">
-        <h1 className="font-display text-5xl font-bold uppercase leading-[0.95] tracking-[0.02em] text-paper sm:text-8xl">
-          <span className="normal-case">#rva<span className="text-accent">4</span>neva</span>
-          <br />
-          Olympics
-        </h1>
+        <Image src="/rva4nevaoly.svg" alt="#rva4neva Olympics" width={280} height={280} priority unoptimized className="h-auto w-40 sm:w-56" />
         <Countdown startsAt={SITE.startsAt} large />
         {/* Renders nothing until src/content/quotes.ts has a quote in it. */}
         <QuoteCarousel quotes={cleanQuotes(QUOTES)} />
@@ -49,11 +46,7 @@ export default async function HomePage() {
           style={{ background: "var(--color-accent)" }}
         />
         <p className="eyebrow">{SITE.tagline}</p>
-        <h1 className="mt-3 font-display text-4xl font-bold uppercase leading-[0.95] tracking-[0.02em] text-paper sm:text-6xl">
-          <span className="normal-case">#rva<span className="text-accent">4</span>neva</span>
-          <br />
-          Olympics
-        </h1>
+        <Image src="/rva4nevaoly.svg" alt="#rva4neva Olympics" width={168} height={168} priority unoptimized className="mt-3 h-auto w-16 sm:w-24" />
         <p className="mt-4 max-w-xl text-sm text-muted">
           Eleven events across two days. Every result converts to points on a
           decathlon-style scale, so the sprint and the trivia round count toward
