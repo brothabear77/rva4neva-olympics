@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -99,24 +100,25 @@ export function NavTabs() {
 
   return (
     <header ref={headerRef} className="sticky top-0 z-50 border-b border-[var(--edge)] bg-ink/95 backdrop-blur">
-      <div className="mx-auto w-full max-w-6xl px-4">
-        <div className="flex items-center justify-between gap-4 py-3">
-          <Link href="/" className="group flex items-baseline gap-2">
-            <span className="font-display text-xl font-bold uppercase tracking-[0.08em] text-paper">
-              <span className="normal-case">#rva<span className="text-accent">4</span>neva</span>
-            </span>
-            <span className="hidden font-display text-xs uppercase tracking-[0.22em] text-muted sm:inline">
-              Olympics
-            </span>
-          </Link>
-          <span className="eyebrow hidden md:inline">{SITE.tagline}</span>
-        </div>
+      <div className="flex w-full items-center gap-4 px-10 py-3">
+        <Link href="/" className="group flex shrink-0 items-center">
+          <Image
+            src="/rva4nevaoly.svg"
+            alt="#rva4neva Olympics"
+            width={74}
+            height={74}
+            priority
+            unoptimized // Next's optimizer refuses local SVGs by default; this one is our own, trusted file.
+            className="h-[74px] w-[74px]"
+          />
+        </Link>
 
-        {/* Tabs scroll horizontally rather than wrap on narrow phones. */}
+        {/* Tabs scroll horizontally, within whatever room is left beside the logo,
+            rather than wrap onto a second row. */}
         <nav
           aria-label="Primary"
           onScroll={() => open && setOpen(null)}
-          className="-mx-4 flex gap-1 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {NAV.map((item) => {
             if (isNavMenu(item)) {
@@ -185,6 +187,8 @@ export function NavTabs() {
             );
           })}
         </nav>
+
+        <span className="eyebrow hidden shrink-0 md:inline">{SITE.tagline}</span>
       </div>
 
       {openMenuData && isNavMenu(openMenuData) ? (

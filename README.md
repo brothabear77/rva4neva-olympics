@@ -172,7 +172,10 @@ the new one, even after a hard refresh or an incognito window: Turbopack's dev c
 resized output for that file path. Restarting `next dev` alone does **not** clear it —
 that cache is reloaded from disk on startup, not rebuilt. Give the new file a different
 name (and update the reference) to sidestep it entirely, or, if you want to keep the
-name, stop the server and run `rm -rf .next/cache/turbopack` before starting it again.
+name, stop the server and run `npm run dev:clean` instead of `npm run dev` once, to
+start it with that cache wiped. `dev:clean` isn't the default `dev` script on purpose:
+clearing it every time throws away Turbopack's incremental rebuild speedup for a bug
+this narrow.
 
 The competitive **Events** tab (standings, leaders) and this guide link to each other.
 
