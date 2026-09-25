@@ -41,7 +41,7 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
       />
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
-        <DayTag day={event.day} />
+        <DayTag day={event.day} order={event.sortOrder} dayText={true}/>
         <span className="eyebrow rounded border border-[var(--edge)] px-2 py-1">
           Measured in {event.unitLabel || "units"}
         </span>

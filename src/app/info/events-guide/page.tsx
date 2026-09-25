@@ -25,6 +25,7 @@ export default async function EventGuidePage(props: PageProps<"/info/events-guid
       slug: event.slug,
       name: event.name,
       day: event.day,
+      sortOrder: event.sortOrder,
       unitLabel: event.unitLabel,
       // What was written wins; otherwise the event's own one-line description.
       summary: guide?.summary?.trim() || event.description,
