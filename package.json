@@ -15,6 +15,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
+    "resize-photo": "tsx scripts/resize-photo.ts",
     "db:studio": "drizzle-kit studio",
     "db:psql": "docker compose exec db psql -U olympics -d olympics",
     "db:reset": "docker compose down -v && npm run db:up && sleep 3 && npm run db:migrate && npm run db:seed",
