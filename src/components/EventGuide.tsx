@@ -12,6 +12,8 @@ export interface GuideEvent {
   slug: string;
   name: string;
   day: number;
+  /** The event's place within that day, for the "Day 1.2" tag. */
+  sortOrder: number;
   unitLabel: string;
   /** The written summary, or the event's own description when none was written. */
   summary: string;
@@ -115,7 +117,7 @@ export function EventGuide({ events, initialSlug }: { events: GuideEvent[]; init
           <h2 className="font-display text-3xl font-bold uppercase tracking-wide text-paper sm:text-4xl">
             {current.name}
           </h2>
-          <DayTag day={current.day} />
+          <DayTag day={current.day} order={current.sortOrder} dayText={true} />
         </div>
 
         <div className="grid gap-10 lg:grid-cols-2">

@@ -98,8 +98,16 @@ export function Banner({ tone, children }: { tone: "ok" | "error"; children: Rea
   );
 }
 
-export function DayTag({ day }: { day: number }) {
+/**
+ * `order` is the event's place within that day (its sortOrder), e.g. "Day 1.2".
+ * `dayText` prepends the word "Day" — pass it wherever that isn't already said
+ * some other way nearby (a "Day One" section heading, say).
+ */
+export function DayTag({ day, order, dayText }: { day?: number; order?: number; dayText?: boolean }) {
   return (
-    <span className="eyebrow rounded border border-[var(--edge)] px-2 py-1">Day {day}</span>
+    <span className="eyebrow rounded border border-[var(--edge)] px-2 py-1">
+      {day != null ? `${dayText ? "Day " : ""}${day}` : ""}
+      {order != null ? `.${order}` : ""}
+    </span>
   );
 }

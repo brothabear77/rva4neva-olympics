@@ -62,7 +62,7 @@ export default async function EventsPage() {
                           <h3 className="font-display text-lg font-semibold uppercase tracking-wide text-paper">
                             {event.name}
                           </h3>
-                          <DayTag day={event.day} />
+                          <DayTag day={event.day} order={event.sortOrder} />
                         </div>
 
                         {event.description ? (
