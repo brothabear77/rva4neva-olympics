@@ -48,7 +48,7 @@ const EVENTS = [
   },
   {
     slug: "stick-drop", name: "Stick Drop Game", day: 2, sortOrder: 1,
-    unitLabel: "sticks", decimals: 0, benchmarkStandard: 15, benchmarkZero: 0,
+    unitLabel: "sticks", decimals: 0, benchmarkStandard: 18, benchmarkZero: 0,
     description: "Reaction time: how many sticks you can catch",
   },
   {
@@ -58,7 +58,7 @@ const EVENTS = [
   },
   {
     slug: "cone-drill", name: "Cone Drill", day: 2, sortOrder: 3,
-    unitLabel: "s", decimals: 2, benchmarkStandard: 4.2, benchmarkZero: 7,
+    unitLabel: "s", decimals: 2, benchmarkStandard: 7, benchmarkZero: 15,
     description: "Weave the cones, timed.",
   },
   {
