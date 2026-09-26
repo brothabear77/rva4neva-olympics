@@ -91,4 +91,54 @@ export const EVENT_GUIDES: EventGuideEntry[] = [
       src: "/events/just-run-bro-still.jpg",
     },
   },
+  {
+    slug: "med-ball-toss",
+    summary: "Med ball toss",
+    rules: [],
+    media: {
+      youtube: "https://www.youtube.com/watch?v=fzc5aGvOfrs",
+      poster: "/events/med-ball-toss-still.jpg",
+    },
+  },
+  {
+    slug: "vertical-jump",
+    summary: "Vertical jump",
+    rules: [],
+    media: {},
+  },
+  {
+    slug: "farmers-walk",
+    summary: "Farmers walk",
+    rules: [],
+    media: {
+      youtube: "https://www.youtube.com/watch?v=kr6jVQhtKbk",
+      poster: "/events/farmers-walk-still.jpg",
+    },
+  },
+  {
+    slug: "stick-drop",
+    summary: "Stick drop",
+    rules: [],
+    media: {
+      youtube: "https://www.youtube.com/watch?v=QLjG7lNacWA",
+      poster: "/events/stick-drop-still.jpg",
+    },
+  },
+  {
+    slug: "cone-drill",
+    summary: "Cone drill",
+    rules: [],
+    media: {
+      src: "/events/cone-drill.mov"
+    },
+  },
+  {
+    slug: "broad-jump",
+    summary: "Broad jump",
+    rules: [],
+    media: {
+      youtube: "https://www.youtube.com/watch?v=c6Etg7bpFfI",
+      poster: "/events/broad-jump-still.jpg",
+    },
+  },
 ];
