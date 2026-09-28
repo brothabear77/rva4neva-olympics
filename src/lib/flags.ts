@@ -29,8 +29,8 @@ export const SUBMISSIONS_LOCKED_MESSAGE = "The scoreboard is currently locked.";
  * them; deleting an athlete removes their scores too) and restoreChange (undoing a
  * change from the history).
  *
- * Deliberately not covered: adding or renaming an athlete, which touch no scores, and
- * retuning an event's scale.
+ * Deliberately not covered: adding or renaming an athlete, which touch no scores, setting
+ * a walkout song, and retuning an event's scale.
  */
 export function submissionsLocked(): Promise<boolean> {
   return boolFlag(SUBMISSION_LOCK_FLAG, false);

@@ -84,7 +84,7 @@ export function RankBadge({ rank }: { rank: number }) {
 
 const BANNER_TONES = {
   ok: "border-accent/40 bg-accent/10 text-accent",
-  error: "border-[var(--edge-strong)] bg-surface/40 text-paper",
+  error: "border-red-500/60 bg-red-500/15 text-red-200",
   locked: "border-red-500/60 bg-red-500/15 text-red-200",
 } as const;
 

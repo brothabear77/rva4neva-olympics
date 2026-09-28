@@ -73,15 +73,18 @@ export class SiteStack extends cdk.Stack {
     //            protects the database is its security group below, not the subnet type.
     //   private  The app's VPC connector only. Its default route goes through the NAT
     //            instance, which is the app's one way out to the internet — needed for
-    //            LaunchDarkly (feature flags, src/lib/flags.ts) and nothing else. It still
-    //            reaches Aurora directly over the VPC's own local route.
+    //            LaunchDarkly (feature flags, src/lib/flags.ts) and Spotify (walkout song
+    //            search, src/lib/spotify.ts), both plain HTTPS. It still reaches Aurora
+    //            directly over the VPC's own local route.
     //
     // A NAT *instance* (fck-nat on a t4g.nano, roughly $3 a month plus its public IPv4
-    // address), not a managed NAT gateway (about $32 a month) for one small stream of
-    // flag updates. It is self-healing: an Auto Scaling group holds exactly one instance,
+    // address), not a managed NAT gateway (about $32 a month) for two small streams of
+    // traffic. It is self-healing: an Auto Scaling group holds exactly one instance,
     // and the private subnets route to a fixed network interface that whichever instance
     // is running attaches at boot, so a replacement needs no route change. If it is down,
-    // running app instances keep their last flag values and new ones fall back to "open".
+    // running app instances keep their last flag values and new ones fall back to "open";
+    // song search says it couldn't reach Spotify (songs already chosen still play, since
+    // the player loads in the visitor's browser).
     //
     // The AMI is pinned rather than looked up: a lookup needs AWS credentials at synth
     // time, and CI synthesizes without any. To update, take the newest ID from
@@ -195,9 +198,25 @@ export class SiteStack extends cdk.Stack {
       secretStringValue: cdk.SecretValue.unsafePlainText("not-provisioned-yet"),
     });
 
+    // --- Spotify ------------------------------------------------------------------------------
+    //
+    // The app's Client ID and Secret from the Spotify developer dashboard, for looking up
+    // walkout songs. One JSON secret with two keys, set by hand once (see "Walkout songs" in
+    // infra/aws.md); CloudFormation only ever writes the placeholders, which the app treats
+    // the same as no credentials: song search is switched off and the rest of the site is
+    // unaffected.
+    const spotifyCredentials = new secretsmanager.Secret(this, "SpotifyCredentials", {
+      secretName: "rva4neva/spotify-credentials",
+      description: 'Spotify app credentials, as JSON {"clientId": "…", "clientSecret": "…"}. Set by hand; see infra/aws.md.',
+      secretObjectValue: {
+        clientId: cdk.SecretValue.unsafePlainText("not-provisioned-yet"),
+        clientSecret: cdk.SecretValue.unsafePlainText("not-provisioned-yet"),
+      },
+    });
+
     // --- App Runner ------------------------------------------------------------------------
     // The access role lets App Runner pull the image from the registry. The instance role is
-    // what the running app is allowed to do: read its two secrets, and nothing else.
+    // what the running app is allowed to do: read its three secrets, and nothing else.
     const accessRole = new iam.Role(this, "AccessRole", {
       assumedBy: new iam.ServicePrincipal("build.apprunner.amazonaws.com"),
       managedPolicies: [
@@ -209,6 +228,7 @@ export class SiteStack extends cdk.Stack {
     });
     appDatabaseUrl.grantRead(instanceRole);
     launchDarklySdkKey.grantRead(instanceRole);
+    spotifyCredentials.grantRead(instanceRole);
 
     // In the private subnets, so the app's outbound traffic has the NAT instance as a way
     // out. A connector's subnets cannot change in place, so changing them replaces it, and
@@ -265,6 +285,9 @@ export class SiteStack extends cdk.Stack {
             runtimeEnvironmentSecrets: [
               { name: "DATABASE_URL", value: appDatabaseUrl.secretArn },
               { name: "LAUNCHDARKLY_SDK_KEY", value: launchDarklySdkKey.secretArn },
+              // "<arn>:<json key>::" is how App Runner picks one field out of a JSON secret.
+              { name: "SPOTIFY_CLIENT_ID", value: `${spotifyCredentials.secretArn}:clientId::` },
+              { name: "SPOTIFY_CLIENT_SECRET", value: `${spotifyCredentials.secretArn}:clientSecret::` },
             ],
           },
         },
@@ -282,7 +305,7 @@ export class SiteStack extends cdk.Stack {
       },
       networkConfiguration: {
         // All outbound traffic goes through the VPC: Aurora directly, the internet
-        // (LaunchDarkly) through the NAT instance.
+        // (LaunchDarkly, Spotify) through the NAT instance.
         egressConfiguration: { egressType: "VPC", vpcConnectorArn: connector.attrVpcConnectorArn },
         ingressConfiguration: { isPubliclyAccessible: true },
       },
@@ -300,5 +323,6 @@ export class SiteStack extends cdk.Stack {
     new cdk.CfnOutput(this, "DatabaseMasterSecretArn", { value: database.secret!.secretArn });
     new cdk.CfnOutput(this, "AppDatabaseUrlSecretArn", { value: appDatabaseUrl.secretArn });
     new cdk.CfnOutput(this, "LaunchDarklySdkKeySecretArn", { value: launchDarklySdkKey.secretArn });
+    new cdk.CfnOutput(this, "SpotifyCredentialsSecretArn", { value: spotifyCredentials.secretArn });
   }
 }

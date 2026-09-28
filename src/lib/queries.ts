@@ -1,7 +1,8 @@
 import "server-only";
 import { asc, desc, eq, lt, sql } from "drizzle-orm";
 import { db } from "./db";
-import { athletes, changeLog, events, results } from "./schema";
+import { athletes, changeLog, events, results, walkoutSongs } from "./schema";
+import { isMissingTable, type WalkoutSong } from "./walkout";
 import { formatMeasurement } from "./scoring";
 import type { Event } from "./schema";
 
@@ -322,4 +323,28 @@ export async function getChangeLog(limit = 100, before?: number): Promise<Change
       restoreTo,
     };
   });
+}
+
+/**
+ * Every athlete's walkout song, by athlete id. Athletes without one are not in the map.
+ *
+ * If the table is not there yet, that is a deploy in progress: CI ships the new code and
+ * then runs the migration that creates it, so for a few minutes the page would otherwise
+ * fail over songs alone. Nobody has a song until it exists, so an empty map is the truth.
+ * Any other error is a real problem and still throws.
+ */
+export async function getWalkoutSongs(): Promise<Map<string, WalkoutSong>> {
+  try {
+    const rows = await db.select().from(walkoutSongs);
+    return new Map(
+      rows.map((r) => [
+        r.athleteId,
+        { trackId: r.trackId, title: r.title, artists: r.artists, albumArtUrl: r.albumArtUrl },
+      ]),
+    );
+  } catch (error) {
+    if (!isMissingTable(error)) throw error;
+    console.warn("app.walkout_songs does not exist yet (the migration has not run). Showing no walkout songs.");
+    return new Map();
+  }
 }

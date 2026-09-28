@@ -37,6 +37,29 @@ export const athletes = appSchema.table(
   ],
 );
 
+/**
+ * An athlete's walkout song: one Spotify track, with what the page needs to show it so
+ * that rendering never calls Spotify.
+ *
+ * A table of its own, not columns on `athletes`, on purpose: every change to `athletes`
+ * is recorded in the change history by a trigger, and a song is not a score — picking
+ * one should not fill the history. So no audit trigger is attached here. The cost: undoing
+ * an athlete's deletion from the history does not bring their song back (the row goes
+ * with them, via the cascade).
+ */
+export const walkoutSongs = appSchema.table("walkout_songs", {
+  athleteId: uuid("athlete_id")
+    .primaryKey()
+    .references(() => athletes.id, { onDelete: "cascade" }),
+  /** Spotify's 22-character track id. */
+  trackId: text("track_id").notNull(),
+  title: text("title").notNull(),
+  /** Every credited artist, joined with ", ". */
+  artists: text("artists").notNull(),
+  albumArtUrl: text("album_art_url"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const events = appSchema.table(
   "events",
   {
@@ -135,6 +158,7 @@ export const changeLog = auditSchema.table(
 );
 
 export type Athlete = typeof athletes.$inferSelect;
+export type WalkoutSongRow = typeof walkoutSongs.$inferSelect;
 export type Event = typeof events.$inferSelect;
 export type Result = typeof results.$inferSelect;
 export type ChangeLogEntry = typeof changeLog.$inferSelect;
