@@ -53,10 +53,10 @@ const FILL_ACTIVE = "bg-[color-mix(in_oklab,var(--color-accent)_12%,var(--raise)
  * a score, and the points update as you type. Only cells you typed a different
  * number into are sent. A blank cell is never sent, so nothing is erased here.
  *
- * DELETE mode. Cells are filled in with the stored scores. Emptying a cell and
- * saving deletes that score. Nothing can be added or changed here: any edit to a
- * filled cell just empties it, so a stray keystroke can only ever mean "delete",
- * never "alter".
+ * DELETE mode. Each stored score is a button labelled with the score. Pressing it
+ * marks that score for deletion (press again to keep it), and saving deletes the
+ * marked ones. There is nothing to type into, so nothing can be added or changed
+ * here: the only thing a press can mean is "delete".
  *
  * They use separate server actions, so saving scores structurally cannot delete.
  * The toggle locks while there are unsaved changes, so the two kinds of change can
@@ -150,9 +150,8 @@ export function ScoreGrid({
 
   // --- delete mode ----------------------------------------------------------
 
-  /** Any edit to a filled cell empties it. Cells with no score have nothing to empty. */
-  const emptyCell = (key: string, hasScore: boolean) => {
-    if (!hasScore) return;
+  /** Marks a stored score for deletion. Only cells that hold a score render a button. */
+  const markForDelete = (key: string) => {
     setEdits((prev) => ({ ...prev, [key]: "" }));
     setMessage(null);
   };
@@ -234,9 +233,8 @@ export function ScoreGrid({
       <p className="text-sm text-muted">
         {deleting ? (
           <>
-            Every saved score is filled in. Empty a cell to delete that score, then save. Editing a
-            filled cell empties it, and cells with no score can&apos;t be deleted. Enter or the arrow
-            keys move up and down a column.
+            Each saved score is a button. Press one to mark it for deletion (press again to keep
+            it), then delete the marked scores below. Nothing is removed until you do.
           </>
         ) : (
           <>
@@ -255,7 +253,7 @@ export function ScoreGrid({
         <table ref={tableRef} className="w-full border-separate border-spacing-0 text-left">
           <caption className="sr-only">
             {deleting
-              ? "Score grid, delete mode. One row per athlete and one column per event; empty a cell to delete that score."
+              ? "Score grid, delete mode. One row per athlete and one column per event; press a score to mark it for deletion."
               : "Score grid. One row per athlete and one column per event; type a result in a cell."}
           </caption>
           <thead>
@@ -324,59 +322,81 @@ export function ScoreGrid({
                   const bad = invalidKeys.has(key);
                   const cleared = deleting && changed; // a stored score this save will delete
 
-                  // What the input holds, and what it shows when it holds nothing.
-                  const text = deleting ? (hasScore && !cleared ? String(stored) : "") : (edits[key] ?? "");
-                  const placeholder = hasScore && (!deleting || cleared) ? String(stored) : "";
-
                   // Points for what is typed, or for the stored score while the cell is blank.
-                  const typed = parseCell(text);
-                  const shown = typed.kind === "number" ? typed.value : stored;
+                  const typed = parseCell(edits[key] ?? "");
+                  const shown = !deleting && typed.kind === "number" ? typed.value : stored;
                   const points = shown !== undefined ? scoreResult(shown, event) : null;
 
                   const what = `${row.name}, ${event.name}${event.unitLabel ? ` (${event.unitLabel})` : ""}`;
 
+                  // Moving to another cell in the grid keeps the highlight rolling;
+                  // leaving the grid (Save, the name box...) clears it.
+                  const focusProps = {
+                    onFocus: () => setActive({ athlete: row.athleteId, event: event.id }),
+                    onBlur: (e: React.FocusEvent) => {
+                      const to = e.relatedTarget;
+                      if (!(to instanceof HTMLElement && tableRef.current?.contains(to))) setActive(null);
+                    },
+                  };
+
                   return (
                     <td key={event.id} className="border-b border-[var(--edge)] px-1 py-1 align-top">
-                      <input
-                        data-r={r}
-                        data-c={c}
-                        value={text}
-                        onChange={(e) => (deleting ? emptyCell(key, hasScore) : setCell(key, e.target.value))}
-                        onKeyDown={(e) => onCellKeyDown(e, r, c)}
-                        onFocus={(e) => {
-                          e.currentTarget.select();
-                          setActive({ athlete: row.athleteId, event: event.id });
-                        }}
-                        // Moving to another cell in the grid keeps the highlight
-                        // rolling; leaving the grid (Save, the name box...) clears it.
-                        onBlur={(e) => {
-                          const to = e.relatedTarget;
-                          if (!(to instanceof HTMLInputElement && tableRef.current?.contains(to))) setActive(null);
-                        }}
-                        // With nothing to delete a cell is inert, but still focusable so the
-                        // keyboard can move through the grid without skipping around it.
-                        readOnly={(deleting && !hasScore) || locked}
-                        inputMode="decimal"
-                        autoComplete="off"
-                        spellCheck={false}
-                        // The placeholder is not reliably read out, so say the stored score here.
-                        placeholder={placeholder}
-                        aria-label={
-                          deleting
-                            ? `${what}, ${
-                                !hasScore ? "no score to delete" : cleared ? `will delete score ${stored}` : `score ${stored}, empty to delete`
-                              }`
-                            : `${what}, ${hasScore ? `saved score ${stored}` : "no score yet"}`
-                        }
-                        aria-invalid={bad || undefined}
-                        className={[
-                          "field tnum h-10 min-h-0 scroll-mt-28 px-1 text-center placeholder:text-muted",
-                          changed ? "border-accent" : "",
-                          cleared ? "border-dashed" : "",
-                          bad ? "border-dashed border-paper" : "",
-                          deleting && !hasScore ? "opacity-40" : "",
-                        ].join(" ")}
-                      />
+                      {deleting ? (
+                        hasScore ? (
+                          <button
+                            type="button"
+                            aria-pressed={cleared}
+                            aria-label={`${what}, score ${stored}, ${cleared ? "will be deleted, press to keep" : "press to delete"}`}
+                            disabled={locked}
+                            onClick={() => (cleared ? restoreCell(key) : markForDelete(key))}
+                            {...focusProps}
+                            className={[
+                              "tnum h-10 w-full rounded-lg border px-1 text-center text-base transition-colors",
+                              "disabled:cursor-not-allowed disabled:opacity-40",
+                              cleared
+                                ? "border-accent bg-accent font-semibold text-ink"
+                                : "border-[var(--edge-strong)] bg-ink text-paper hover:border-accent hover:text-accent",
+                            ].join(" ")}
+                          >
+                            {stored}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled
+                            aria-label={`${what}, no score to delete`}
+                            className="tnum h-10 w-full cursor-not-allowed rounded-lg border border-[var(--edge-strong)] bg-ink px-1 text-center text-base text-muted opacity-40"
+                          >
+                            –
+                          </button>
+                        )
+                      ) : (
+                        <input
+                          data-r={r}
+                          data-c={c}
+                          value={edits[key] ?? ""}
+                          onChange={(e) => setCell(key, e.target.value)}
+                          onKeyDown={(e) => onCellKeyDown(e, r, c)}
+                          onFocus={(e) => {
+                            e.currentTarget.select();
+                            focusProps.onFocus();
+                          }}
+                          onBlur={focusProps.onBlur}
+                          readOnly={locked}
+                          inputMode="decimal"
+                          autoComplete="off"
+                          spellCheck={false}
+                          // The placeholder is not reliably read out, so say the stored score here.
+                          placeholder={hasScore ? String(stored) : ""}
+                          aria-label={`${what}, ${hasScore ? `saved score ${stored}` : "no score yet"}`}
+                          aria-invalid={bad || undefined}
+                          className={[
+                            "field tnum h-10 min-h-0 scroll-mt-28 px-1 text-center placeholder:text-muted",
+                            changed ? "border-accent" : "",
+                            bad ? "border-dashed border-paper" : "",
+                          ].join(" ")}
+                        />
+                      )}
                       {/* Always one line tall, so typing a value does not shift the row. */}
                       <span
                         className={[
@@ -384,22 +404,7 @@ export function ScoreGrid({
                           changed ? "text-accent" : "text-muted",
                         ].join(" ")}
                       >
-                        {cleared ? (
-                          <button
-                            type="button"
-                            onClick={() => restoreCell(key)}
-                            aria-label={`Undo deleting ${what}`}
-                            className="underline underline-offset-2"
-                          >
-                            undo
-                          </button>
-                        ) : bad ? (
-                          "not a number"
-                        ) : points !== null ? (
-                          `${points} pts`
-                        ) : (
-                          ""
-                        )}
+                        {cleared ? "will delete" : bad ? "not a number" : points !== null ? `${points} pts` : ""}
                       </span>
                     </td>
                   );
