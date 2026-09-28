@@ -1,11 +1,14 @@
 import { AthletePhoto } from "./AthletePhoto";
 import { RankBadge } from "./ui";
+import { WalkoutHeading } from "./WalkoutSong";
 import { paragraphs, type AthleteProfile } from "@/lib/profiles";
+import type { WalkoutSong } from "@/lib/walkout";
 
 export interface RosterRow {
   id: string;
   name: string;
   profile: AthleteProfile | null;
+  walkout: WalkoutSong | null;
   standing: { rank: number; totalPoints: number; eventsCompleted: number };
 }
 
@@ -13,12 +16,21 @@ export interface RosterRow {
  * One row per athlete: a photo, then their name, tagline and bio, then where they
  * stand. Every athlete is here whether or not anyone has written about them yet;
  * without a photo they get their initials, and without a bio a quiet note, so a
- * half-filled page looks deliberate.
+ * half-filled page looks deliberate. A walkout song, if set, plays from beside the name.
  */
-export function AthleteRoster({ rows, eventCount }: { rows: RosterRow[]; eventCount: number }) {
+export function AthleteRoster({
+  rows,
+  eventCount,
+  songSearch,
+}: {
+  rows: RosterRow[];
+  eventCount: number;
+  /** Whether the site can search Spotify (it has credentials). */
+  songSearch: boolean;
+}) {
   return (
     <ul className="space-y-3">
-      {rows.map(({ id, name, profile, standing }) => {
+      {rows.map(({ id, name, profile, walkout, standing }) => {
         const photo = profile?.photo?.trim();
         const tagline = profile?.tagline?.trim();
         const bio = paragraphs(profile?.bio);
@@ -28,7 +40,9 @@ export function AthleteRoster({ rows, eventCount }: { rows: RosterRow[]; eventCo
             <AthletePhoto name={name} src={photo} key={photo ?? "none"} />
 
             <div className="min-w-[12rem] flex-1">
-              <h2 className="font-display text-xl font-bold uppercase tracking-wide text-paper">{name}</h2>
+              <WalkoutHeading athleteId={id} name={name} walkout={walkout} searchable={songSearch}>
+                <h2 className="font-display text-xl font-bold uppercase tracking-wide text-paper">{name}</h2>
+              </WalkoutHeading>
               {tagline ? <p className="mt-0.5 text-sm text-accent">{tagline}</p> : null}
               {bio.length > 0 ? (
                 <div className="mt-2 space-y-2 text-sm leading-relaxed text-paper">

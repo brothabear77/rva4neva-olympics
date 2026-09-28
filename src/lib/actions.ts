@@ -4,12 +4,14 @@ import { revalidatePath } from "next/cache";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, withActor, type Tx } from "./db";
-import { athletes, changeLog, events, importBatches, results } from "./schema";
+import { athletes, changeLog, events, importBatches, results, walkoutSongs } from "./schema";
 import { isScorable, scoreResult } from "./scoring";
 import { buildImportPreview, parseResultsCsv, type ImportPreview } from "./csv";
 import { MAX_RAW_VALUE, type GridDeletion, type GridSubmission } from "./grid";
 import { checkAthleteName } from "./roster";
 import { SUBMISSIONS_LOCKED_MESSAGE, submissionsLocked } from "./flags";
+import { getTrack, searchTracks } from "./spotify";
+import { MAX_QUERY_LENGTH, MIN_QUERY_LENGTH, isMissingTable, isTrackId, spotifyTrackId, type WalkoutSong } from "./walkout";
 
 /**
  * Every write goes through here.
@@ -327,6 +329,82 @@ export async function deleteAthlete(input: { id: string; submittedBy: string }):
   } catch (error) {
     return fail(describeError(error));
   }
+}
+
+// ---------------------------------------------------------------------------
+// Walkout songs
+// ---------------------------------------------------------------------------
+//
+const SONGS_NOT_READY = "Walkout songs are still being set up. Try again in a few minutes.";
+
+// Not audited and not covered by the scoreboard lock: a song is not a score, and none
+// of this goes through `withActor`. See `walkoutSongs` in schema.ts.
+
+/**
+ * Songs matching what was typed. A pasted Spotify link (or uri, or bare track id) is
+ * looked up directly, so it sets that exact track instead of whatever a search ranks first.
+ */
+export async function searchWalkoutSongs(query: string): Promise<ActionResult<WalkoutSong[]>> {
+  const text = String(query ?? "").trim();
+  if (text.length < MIN_QUERY_LENGTH) return fail("Type at least two letters.");
+  if (text.length > MAX_QUERY_LENGTH) return fail("That search is too long.");
+
+  const pasted = spotifyTrackId(text);
+  const found = pasted ? await getTrack(pasted) : await searchTracks(text);
+  if (!found.ok) return fail(found.message);
+
+  const songs = Array.isArray(found.data) ? found.data : [found.data];
+  return ok(songs.length === 0 ? "No songs found." : `${songs.length} found.`, songs);
+}
+
+/**
+ * Give an athlete a walkout song, replacing any they had.
+ *
+ * Only the track id is taken from the browser. The title, artists and artwork are
+ * fetched from Spotify here, so what is stored is what Spotify says that track is.
+ */
+export async function setWalkoutSong(input: { athleteId: string; trackId: string }): Promise<ActionResult> {
+  const parsed = z
+    .object({ athleteId: z.string().uuid(), trackId: z.string().refine(isTrackId) })
+    .safeParse(input);
+  if (!parsed.success) return fail("Pick a song from the list and try again.");
+
+  const track = await getTrack(parsed.data.trackId);
+  if (!track.ok) return fail(track.message);
+  const { trackId, title, artists, albumArtUrl } = track.data;
+
+  try {
+    await db
+      .insert(walkoutSongs)
+      .values({ athleteId: parsed.data.athleteId, trackId, title, artists, albumArtUrl })
+      .onConflictDoUpdate({
+        target: walkoutSongs.athleteId,
+        set: { trackId, title, artists, albumArtUrl, updatedAt: sql`now()` },
+      });
+  } catch (error) {
+    // 23503: the athlete was removed after this page loaded.
+    if ((error as { code?: string }).code === "23503") return fail("That athlete is no longer on the roster. Reload the page.");
+    if (isMissingTable(error)) return fail(SONGS_NOT_READY);
+    return fail(describeError(error));
+  }
+
+  revalidatePath("/info/athletes");
+  return ok(`Walkout song set to ${title} by ${artists}.`);
+}
+
+export async function clearWalkoutSong(input: { athleteId: string }): Promise<ActionResult> {
+  const parsed = z.object({ athleteId: z.string().uuid() }).safeParse(input);
+  if (!parsed.success) return fail("Pick an athlete first.");
+
+  try {
+    await db.delete(walkoutSongs).where(eq(walkoutSongs.athleteId, parsed.data.athleteId));
+  } catch (error) {
+    if (isMissingTable(error)) return fail(SONGS_NOT_READY);
+    return fail(describeError(error));
+  }
+
+  revalidatePath("/info/athletes");
+  return ok("Walkout song removed.");
 }
 
 // ---------------------------------------------------------------------------

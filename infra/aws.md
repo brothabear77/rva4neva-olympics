@@ -7,7 +7,7 @@ Nothing here is needed for local development: `docker compose up -d db` covers t
 your laptop ──docker push──▶ ECR ──▶ App Runner ──(VPC connector)──▶ Aurora
                                      (HTTPS URL)        │               ▲
                                                         ▼               │
-                              NAT instance ──▶ LaunchDarkly             │
+                      NAT instance ──▶ LaunchDarkly, Spotify            │
                      migrations and psql, from one IP address ──────────┘
 ```
 
@@ -15,10 +15,10 @@ your laptop ──docker push──▶ ECR ──▶ App Runner ──(VPC conne
 |---|---|---|
 | Registry | ECR repository `rva4neva-olympics`, keeps the last 10 images, tags never overwritten | `infra/cdk/lib/olympics-stack.ts` (`RegistryStack`) |
 | Network | A VPC, two availability zones. Public subnets (Aurora, the NAT instance) and private subnets (the app's VPC connector only) | `SiteStack` |
-| NAT instance | fck-nat on a `t4g.nano`, in an Auto Scaling group of one: the app's only route to the internet, for LaunchDarkly | `SiteStack` |
+| NAT instance | fck-nat on a `t4g.nano`, in an Auto Scaling group of one: the app's only route to the internet, for LaunchDarkly and Spotify | `SiteStack` |
 | Database | Aurora Serverless v2, PostgreSQL 17, 0 to 2 ACU, pauses after 5 idle minutes | `SiteStack` |
 | App | App Runner: 0.25 vCPU, 1 GB, one instance always on, at most two | `SiteStack` |
-| Secrets | `rva4neva/database-master` (the owner), `rva4neva/app-database-url` (what the app uses), `rva4neva/launchdarkly-sdk-key` (set by hand, see *Feature flags*) | `SiteStack` |
+| Secrets | `rva4neva/database-master` (the owner), `rva4neva/app-database-url` (what the app uses), `rva4neva/launchdarkly-sdk-key` (set by hand, see *Feature flags*), `rva4neva/spotify-credentials` (set by hand, see *Walkout songs*) | `SiteStack` |
 
 Infrastructure is AWS CDK in `infra/cdk`, a package of its own, so none of it reaches the
 app's dependencies or its Docker image. Two scripts drive it: `scripts/deploy.ts` and
@@ -215,10 +215,10 @@ Estimates from memory, not live pricing, so check the AWS pricing pages before r
 | NAT instance (`t4g.nano` + its public IPv4 address) | about $7 a month | same |
 | ECR, Secrets Manager | under $1 a month | same |
 
-The one outbound call the server makes is to LaunchDarkly, for feature flags. That goes
-through a NAT *instance* rather than a managed NAT gateway (about $32 a month) for the sake
-of one small stream of flag updates. There is no load balancer: App Runner brings its own
-HTTPS front end.
+The server's outbound calls are to LaunchDarkly (feature flags) and Spotify (walkout song
+search). They go through a NAT *instance* rather than a managed NAT gateway (about $32 a
+month) for the sake of two small streams of traffic. There is no load balancer: App Runner
+brings its own HTTPS front end.
 
 ## Feature flags
 
@@ -252,6 +252,48 @@ The private subnets route to a fixed network interface rather than to the instan
 whichever instance is running attaches it at boot, so a replacement takes a few minutes and
 needs nothing from you. The AMI is pinned in `olympics-stack.ts`, with the command for
 finding a newer one next to it.
+
+## Walkout songs
+
+Each athlete on `/info/athletes` can have a walkout song: a play button beside their name,
+and a chevron that opens a search box. Songs are found through the Spotify Web API
+(`src/lib/spotify.ts`, the Client Credentials flow, so nobody signs in to anything) and
+stored in `app.walkout_songs`. Playing one opens Spotify's own embedded player in the
+visitor's browser.
+
+Two things are deliberately different from the rest of the site's data. **Choosing a song is
+not recorded in Change History**, because the table has no audit trigger (a song is not a
+score). And it is **not frozen by the `submission-lock` flag**. The one gap: undoing an
+athlete's deletion from Change History brings back the athlete and their scores, but not the
+song.
+
+**The Spotify credentials are set by hand, once.** Create the app at
+developer.spotify.com/dashboard (it is called "#rva4neva-olympics"), copy its Client ID and
+Client secret, and store them as one JSON secret. CloudFormation creates it holding
+placeholders, which the app treats as no credentials at all: the search button is hidden
+and nothing else changes.
+
+**Deploy first.** The secret does not exist until a deploy has created it, and
+`put-secret-value` before that fails with `ResourceNotFoundException`. So the order is:
+deploy (this creates the secret with placeholders), then run the commands below, which
+overwrite the placeholders and restart the app.
+
+```bash
+read -r  SP_ID;  read -rs SP_SECRET; f=$(mktemp)
+printf '{"clientId":"%s","clientSecret":"%s"}' "$SP_ID" "$SP_SECRET" > "$f"
+aws secretsmanager put-secret-value --secret-id rva4neva/spotify-credentials --secret-string "file://$f"
+rm "$f"; unset SP_ID SP_SECRET
+aws apprunner start-deployment --service-arn <ServiceArn, from the stack outputs>
+```
+
+The restart is needed because App Runner reads secrets only when an instance starts.
+Locally, the same two values go in `.env.local` as `SPOTIFY_CLIENT_ID` and
+`SPOTIFY_CLIENT_SECRET`.
+
+**If Spotify can't be reached** (the NAT instance is being replaced, or Spotify is down),
+searching says so and nothing else is affected. Songs already chosen keep playing, because
+their player loads straight from Spotify in the visitor's browser and never touches the NAT.
+Album art in the results does the same.
 
 ## Custom domain
 
@@ -369,10 +411,10 @@ snapshot is kept, and `aws rds describe-db-cluster-snapshots --snapshot-type man
 left over from failed attempts. They cost a little each month, and deleting an empty one loses
 nothing.
 
-The App Runner service log also notes that the VPC connector uses public subnets, advising
-private ones "to avoid connection failures when accessing the internet". That is expected here:
-the app makes no outbound calls, and the subnets are public so the database can be reached from
-your machine. It is a warning, not a failure.
+An older App Runner service log warning said the VPC connector used public subnets, advising
+private ones "to avoid connection failures when accessing the internet". The connector is in
+the private subnets now, with the NAT instance as its way out, so it no longer applies. If it
+comes back, the connector's subnets have been changed.
 
 ## Tearing it down
 

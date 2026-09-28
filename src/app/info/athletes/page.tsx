@@ -4,7 +4,8 @@ import { DevNotes } from "@/components/DevNotes";
 import { EmptyState, PageHeader } from "@/components/ui";
 import { ATHLETE_PROFILES } from "@/content/athletes";
 import { mergeAthleteProfiles } from "@/lib/profiles";
-import { getEventsForForm, getLeaderboard } from "@/lib/queries";
+import { getEventsForForm, getLeaderboard, getWalkoutSongs } from "@/lib/queries";
+import { spotifyConfigured } from "@/lib/spotify";
 import { isLocalDev, publicFileMissing } from "@/lib/publicFiles";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Athletes" };
 
 export default async function AthletesPage() {
-  const [entries, events] = await Promise.all([getLeaderboard(), getEventsForForm()]);
+  const [entries, events, walkoutSongs] = await Promise.all([getLeaderboard(), getEventsForForm(), getWalkoutSongs()]);
 
   // A reference page reads best alphabetically; the leaderboard already has the standings.
   const roster = [...entries]
@@ -53,10 +54,12 @@ export default async function AthletesPage() {
       ) : (
         <AthleteRoster
           eventCount={events.length}
+          songSearch={spotifyConfigured()}
           rows={rows.map(({ athlete, profile }) => ({
             id: athlete.id,
             name: athlete.name,
             profile,
+            walkout: walkoutSongs.get(athlete.id) ?? null,
             standing: athlete.standing,
           }))}
         />
