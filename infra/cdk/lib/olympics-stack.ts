@@ -211,13 +211,29 @@ export class SiteStack extends cdk.Stack {
     launchDarklySdkKey.grantRead(instanceRole);
 
     // In the private subnets, so the app's outbound traffic has the NAT instance as a way
-    // out. A connector's subnets cannot change in place, and CloudFormation cannot replace
-    // a resource that keeps its custom name, which is why this is no longer plain
-    // "rva4neva-olympics".
+    // out. A connector's subnets cannot change in place, so changing them replaces it, and
+    // replacing it is fussy in two ways, because CloudFormation creates the new connector
+    // before deleting the old one:
+    //
+    //   - The name has to change: two connectors can't share one. Hence no longer plain
+    //     "rva4neva-olympics".
+    //   - The set of security groups has to change too: App Runner refuses to create a
+    //     connector whose security groups exactly match an existing connector's. Hence
+    //     the second group below. It has no rules of its own (the app's rules stay on
+    //     appSecurityGroup, so everything that admits the app keeps working unchanged);
+    //     it exists only to make this connector's set of groups unique.
+    //
+    // A future change to these subnets needs both tricks again: a new name, and a group
+    // set that differs from this one.
+    const connectorMarkerGroup = new ec2.SecurityGroup(this, "ConnectorPrivateMarker", {
+      vpc,
+      description: "No rules. Makes the security groups of the private-subnet VPC connector unique.",
+      allowAllOutbound: false,
+    });
     const connector = new apprunner.CfnVpcConnector(this, "VpcConnector", {
       vpcConnectorName: "rva4neva-olympics-private",
       subnets: vpc.privateSubnets.map((subnet) => subnet.subnetId),
-      securityGroups: [appSecurityGroup.securityGroupId],
+      securityGroups: [appSecurityGroup.securityGroupId, connectorMarkerGroup.securityGroupId],
     });
 
     // One instance always running, two at most: the cap keeps a runaway request storm
