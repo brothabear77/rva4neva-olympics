@@ -19,57 +19,57 @@ const EVENTS = [
   {
     slug: "50m-swim", name: "50m Swim", day: 1, sortOrder: 1,
     unitLabel: "s", decimals: 2, benchmarkStandard: 25, benchmarkZero: 75,
-    description: "One length, timed. Any stroke.",
+    description: "Swim 50m freestyle",
   },
   {
     slug: "vertical-jump", name: "Vertical Jump", day: 1, sortOrder: 2,
     unitLabel: "in", decimals: 1, benchmarkStandard: 36, benchmarkZero: 0,
-    description: "Measured jump by yardstick, best of three jumps.",
+    description: "Vertical jump for height",
   },
   {
     slug: "shuttle-run", name: "Shuttle Run", day: 1, sortOrder: 3,
     unitLabel: "s", decimals: 2, benchmarkStandard: 4.5, benchmarkZero: 9,
-    description: "Five yards, turn, ten back, turn, five home. Timed.",
+    description: "5 yards, then 10 the other way, then 5 back to finish",
   },
   {
     slug: "jump-rope", name: "Jump Rope", day: 1, sortOrder: 4,
     unitLabel: "reps", decimals: 0, benchmarkStandard: 120, benchmarkZero: 0,
-    description: "Most jumps in 30 seconds.",
+    description: "Jump rope for as many reps as possible in 30 seconds",
   },
   {
     slug: "med-ball-toss", name: "Med Ball Toss", day: 1, sortOrder: 5,
     unitLabel: "m", decimals: 1, benchmarkStandard: 25, benchmarkZero: 0,
-    description: "15lb med ball, best of three throws.",
+    description: "Throw a medicine ball as far as possible",
   },
   {
     slug: "farmers-walk", name: "Farmer's Walk", day: 1, sortOrder: 6,
     unitLabel: "m", decimals: 1, benchmarkStandard: 400, benchmarkZero: 0,
-    description: "A weight in each hand, furthest distance without stopping.",
+    description: "Farmers walk",
   },
   {
     slug: "stick-drop", name: "Stick Drop Game", day: 2, sortOrder: 1,
     unitLabel: "sticks", decimals: 0, benchmarkStandard: 18, benchmarkZero: 0,
-    description: "Reaction time: how many sticks you can catch",
+    description: "Catch as many sticks as possible",
   },
   {
     slug: "100m-run", name: "100m Run", day: 2, sortOrder: 2,
     unitLabel: "s", decimals: 2, benchmarkStandard: 11, benchmarkZero: 25,
-    description: "One sprint, timed.",
+    description: "Run 100 meters as fast as possible",
   },
   {
     slug: "cone-drill", name: "Cone Drill", day: 2, sortOrder: 3,
     unitLabel: "s", decimals: 2, benchmarkStandard: 7, benchmarkZero: 15,
-    description: "Weave the cones, timed.",
+    description: "Run through the designed course as fast as possible",
   },
   {
     slug: "broad-jump", name: "Broad Jump", day: 2, sortOrder: 4,
     unitLabel: "m", decimals: 1, benchmarkStandard: 3.5, benchmarkZero: 0,
-    description: "Standing start, both feet, best of three jumps.",
+    description: "Broad jump for distance",
   },
   {
     slug: "mile-run", name: "Mile Run", day: 2, sortOrder: 5,
     unitLabel: "s", decimals: 0, benchmarkStandard: 300, benchmarkZero: 720,
-    description: "One mile, timed. Entered in seconds (5:00 = 300).",
+    description: "Run a mile as fast as possible",
   },
 ] as const;
 

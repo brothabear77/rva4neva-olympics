@@ -14,7 +14,7 @@ import { formatMeasurement } from "@/lib/scoring";
  * server re-validates on commit rather than trusting this preview, since the
  * scoreboard may have moved on between the two steps.
  */
-export function CsvUpload() {
+export function CsvUpload({ locked = false }: { locked?: boolean }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useScorekeeperName();
   const [csvText, setCsvText] = useState("");
@@ -139,7 +139,7 @@ export function CsvUpload() {
             type="button"
             onClick={commit}
             className="btn"
-            disabled={pending || !preview.canCommit}
+            disabled={pending || !preview.canCommit || locked}
           >
             {pending
               ? "Importing…"

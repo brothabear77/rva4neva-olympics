@@ -41,6 +41,9 @@ export const QUOTES: QuoteInput[] = [
   { text: "So it’s settled Nick #1. Pam / Ahmed #2. David < Mohit", author: "Marco"},
   { text: "Pam you played sports in high school, I LEFT high school to play sports there is no way you think you’re more athletic than me 😭", author: "Ahmed"},
   { text: "I just don’t get where the confidence comes from with a former semi-pro athlete and a former D1 athlete in here but I don’t mind humbling people", author: "Nick"},
-  { text: "OK, well the whole thing is next year when we're doing it right? I'm telling you if we're all fit next year, you at your fittest, me and my fittest, I'm dusting you in nearly every single event like without even, like, close competition. Like you're not faster than me, you're not more agile than me.", author: "Ahmed, to David"}
+  { text: "OK, well the whole thing is next year when we're doing it right? I'm telling you if we're all fit next year, you at your fittest, me and my fittest, I'm dusting you in nearly every single event like without even, like, close competition. Like you're not faster than me, you're not more agile than me.", author: "Ahmed, to David"},
+  { text: "Me moving as a gay cripple is still better than most people man. When will yall understand", author: "Ahmed"},
+  { text: "Mohit I’ll dust you too. In this shape", author: "Ahmed"},
+  { text: "I don’t care what comp y’all want, it’s mine to lose", author: "Nick"}
   
 ];

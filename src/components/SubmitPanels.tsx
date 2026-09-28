@@ -15,10 +15,13 @@ export function SubmitPanels({
   events,
   athletes,
   results,
+  locked = false,
 }: {
   events: Event[];
   athletes: Athlete[];
   results: StoredResult[];
+  /** New scores are blocked (see src/lib/flags.ts): the grid's add mode and the CSV import are disabled. */
+  locked?: boolean;
 }) {
   const [mode, setMode] = useState<Mode>("grid");
 
@@ -62,10 +65,10 @@ export function SubmitPanels({
         {/* Both stay mounted and one is hidden, so flipping to the CSV tab and back
             does not throw away a half-filled grid. */}
         <div hidden={mode !== "grid"}>
-          <ScoreGrid events={events} athletes={athletes} results={results} />
+          <ScoreGrid events={events} athletes={athletes} results={results} locked={locked} />
         </div>
         <div hidden={mode !== "csv"}>
-          <CsvUpload />
+          <CsvUpload locked={locked} />
         </div>
       </div>
     </>

@@ -40,6 +40,11 @@ import {
  * again — the same admin-ip idea a laptop uses, scoped to one job instead of left open. A
  * laptop never passes --ci; it already has a standing admin-ip rule from its last deploy, so
  * it goes straight to the tables. --ci is implied by GITHUB_ACTIONS=true, same as deploy.ts.
+ *
+ * The workflow also passes --seed itself, but only when a push touches scripts/seed.ts
+ * before the event has started — see the `diff` step in .github/workflows/deploy.yml. After
+ * kickoff a seed.ts change deploys the code but never reseeds automatically, so it can't
+ * silently overwrite a benchmark someone retuned live through the site's own forms.
  */
 
 const APP_ROLE = "olympics_app";

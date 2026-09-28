@@ -29,7 +29,8 @@ export interface CiStackProps extends cdk.StackProps {
  * deploy is limited to shipping bad app code, not touching the database directly.
  *
  * MigrateRole is the one exception, assumed only by the workflow's `migrate` job, which
- * itself only runs when a push changes `drizzle/`. It can read the database owner's
+ * itself only runs when a push changes `drizzle/`, or changes `scripts/seed.ts` before the
+ * event has started (see .github/workflows/deploy.yml). It can read the database owner's
  * secret and briefly open the database's security group to the runner's own IP — the
  * same thing a laptop deploy's admin-ip does, just scoped to one job instead of left
  * open. Splitting this into its own role, rather than widening DeployRole, means an
