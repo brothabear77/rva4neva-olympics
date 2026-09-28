@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { RosterEditor } from "@/components/RosterEditor";
 import { SubmitPanels } from "@/components/SubmitPanels";
-import { Banner, PageHeader } from "@/components/ui";
-import { SUBMISSIONS_LOCKED_MESSAGE, submissionsLocked } from "@/lib/flags";
+import { LockedBanner } from "@/components/LockedBanner";
+import { PageHeader } from "@/components/ui";
+import { submissionsLocked } from "@/lib/flags";
 import { getAthletes, getEventsForForm, getResultValues, getRoster } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -31,15 +32,11 @@ export default async function SubmitPage() {
         }
       />
 
-      {locked ? (
-        <div className="mb-6">
-          <Banner tone="error">{SUBMISSIONS_LOCKED_MESSAGE}</Banner>
-        </div>
-      ) : null}
+      {locked ? <LockedBanner /> : null}
 
       <SubmitPanels events={events} athletes={athletes} results={results} locked={locked} />
 
-      <RosterEditor roster={roster} />
+      <RosterEditor roster={roster} locked={locked} />
     </>
   );
 }

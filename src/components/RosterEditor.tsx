@@ -22,10 +22,10 @@ const LINK = "text-sm text-muted underline-offset-4 hover:text-accent hover:unde
  * on the server, which has the final say.
  *
  * Deleting is the one drastic thing here, because an athlete's scores go with
- * them. It asks first, says how many scores that is, and is undoable from Change
+ * them, so it is disabled while the scoreboard is locked. It asks first, says how many scores that is, and is undoable from Change
  * History (which brings the athlete back together with every score removed).
  */
-export function RosterEditor({ roster }: { roster: RosterEntry[] }) {
+export function RosterEditor({ roster, locked = false }: { roster: RosterEntry[]; locked?: boolean }) {
   const [scorekeeper, setScorekeeper] = useScorekeeperName();
   const [newName, setNewName] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
@@ -204,7 +204,7 @@ export function RosterEditor({ roster }: { roster: RosterEntry[] }) {
                           <button
                             type="button"
                             onClick={() => confirmDelete(athlete.id)}
-                            disabled={working}
+                            disabled={working || locked}
                             className="text-sm font-semibold text-accent hover:underline disabled:opacity-40"
                           >
                             {working ? "Deleting…" : "Yes, delete"}
@@ -233,6 +233,7 @@ export function RosterEditor({ roster }: { roster: RosterEntry[] }) {
                               setConfirming(athlete.id);
                             }}
                             aria-label={`Delete ${athlete.name}`}
+                            disabled={locked}
                             className={LINK}
                           >
                             Delete

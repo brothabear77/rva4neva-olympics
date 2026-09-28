@@ -75,7 +75,7 @@ export function ScoreGrid({
   events: Event[];
   athletes: Athlete[];
   results: StoredResult[];
-  /** New scores are blocked: add mode goes read-only. Delete mode is a correction, so it stays usable. */
+  /** The scoreboard is locked (see src/lib/flags.ts): both add and delete mode go read-only and saving is disabled. */
   locked?: boolean;
 }) {
   const [scorekeeper, setScorekeeper] = useScorekeeperName();
@@ -89,7 +89,6 @@ export function ScoreGrid({
   const tableRef = useRef<HTMLTableElement>(null);
 
   const deleting = mode === "delete";
-  const addLocked = locked && !deleting;
 
   const original = useMemo(
     () => new Map(results.map((r) => [cellKey(r.athleteId, r.eventId), r.rawValue])),
@@ -112,7 +111,7 @@ export function ScoreGrid({
   const invalidKeys = deleting ? NO_KEYS : addDiff.invalidKeys;
   const pending = deleting ? deleteDiff.cells.length : addDiff.changes.length;
   const invalid = invalidKeys.size;
-  const canSave = pending > 0 && invalid === 0 && !saving && !addLocked;
+  const canSave = pending > 0 && invalid === 0 && !saving && !locked;
   // Anything worth losing if the mode flipped now.
   const hasUnsaved = pending > 0 || invalid > 0;
 
@@ -356,7 +355,7 @@ export function ScoreGrid({
                         }}
                         // With nothing to delete a cell is inert, but still focusable so the
                         // keyboard can move through the grid without skipping around it.
-                        readOnly={(deleting && !hasScore) || addLocked}
+                        readOnly={(deleting && !hasScore) || locked}
                         inputMode="decimal"
                         autoComplete="off"
                         spellCheck={false}

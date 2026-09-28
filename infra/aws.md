@@ -223,9 +223,10 @@ HTTPS front end.
 ## Feature flags
 
 Flags live in LaunchDarkly (project `default`); `src/lib/flags.ts` lists the ones the site
-reads. Today that is one: `submission-lock`. On, and nobody can submit new scores (the grid
-and the CSV import are disabled, and the server refuses them); corrections and roster edits
-still work. Flip it in LaunchDarkly's **Production** environment. The site picks the change
+reads. Today that is one: `submission-lock`. On, and the scores are frozen: nobody can submit
+scores, delete them (including deleting an athlete, which removes their scores), or restore a
+change from the history. The buttons are disabled under a red banner and the server refuses
+the actions too. Adding or renaming an athlete and retuning an event's scale still work. Flip it in LaunchDarkly's **Production** environment. The site picks the change
 up within seconds, no deploy needed.
 
 **The production SDK key is set by hand, once.** CloudFormation creates the secret with a

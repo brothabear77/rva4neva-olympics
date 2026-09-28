@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BenchmarkForm } from "@/components/BenchmarkForm";
 import { DeleteResultButton } from "@/components/DeleteResultButton";
+import { LockedBanner } from "@/components/LockedBanner";
 import { DayTag, EmptyState, PageHeader, RankBadge, Stat } from "@/components/ui";
+import { submissionsLocked } from "@/lib/flags";
 import { getEventBySlug, getEventResults } from "@/lib/queries";
 import { describeScale, formatMeasurement } from "@/lib/scoring";
 
@@ -19,7 +21,7 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
   const event = await getEventBySlug(slug);
   if (!event) notFound();
 
-  const rows = await getEventResults(event.id);
+  const [rows, locked] = await Promise.all([getEventResults(event.id), submissionsLocked()]);
   const best = rows[0] ?? null;
 
   return (
@@ -39,6 +41,8 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
           </>
         }
       />
+
+      {locked ? <LockedBanner /> : null}
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <DayTag day={event.day} order={event.sortOrder} dayText={true}/>
@@ -134,7 +138,7 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <DeleteResultButton resultId={row.id} athleteName={row.athleteName} />
+                    <DeleteResultButton resultId={row.id} athleteName={row.athleteName} locked={locked} />
                   </td>
                 </tr>
               ))}

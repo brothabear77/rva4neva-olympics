@@ -41,7 +41,7 @@ const OPERATION_LABEL: Record<string, string> = {
   RESTORE: "Restored",
 };
 
-export function ChangeLogTable({ entries }: { entries: ChangeLogRow[] }) {
+export function ChangeLogTable({ entries, locked = false }: { entries: ChangeLogRow[]; locked?: boolean }) {
   const [name] = useScorekeeperName();
   const [state, formAction, pending] = useActionState(
     async (_prev: ActionResult | null, formData: FormData) => restoreChange(formData),
@@ -82,7 +82,7 @@ export function ChangeLogTable({ entries }: { entries: ChangeLogRow[] }) {
                         "26.5 → 28", "Restore" alone does not say which you get. */}
                     <button
                       type="submit"
-                      disabled={pending}
+                      disabled={pending || locked}
                       className="text-xs text-muted underline-offset-4 hover:text-accent hover:underline disabled:opacity-50"
                     >
                       {entry.operation === "INSERT" ? "Restore " : "Undo — back to "}
