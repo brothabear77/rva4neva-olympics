@@ -202,6 +202,8 @@ const gridDeleteSchema = z.object({
  * (someone else deleted it first) is simply skipped.
  */
 export async function deleteScores(input: GridDeletion): Promise<ActionResult<{ deleted: number }>> {
+  if (await submissionsLocked()) return fail(SUBMISSIONS_LOCKED_MESSAGE);
+
   const parsed = gridDeleteSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the grid and try again.");
   const { cells, submittedBy } = parsed.data;
@@ -296,6 +298,9 @@ export async function renameAthlete(input: { id: string; name: string; submitted
  * History brings back the athlete and every score removed with them.
  */
 export async function deleteAthlete(input: { id: string; submittedBy: string }): Promise<ActionResult<{ scores: number }>> {
+  // Locked along with score deletion: this deletes the athlete's scores too.
+  if (await submissionsLocked()) return fail(SUBMISSIONS_LOCKED_MESSAGE);
+
   const parsed = z.object({ id: z.string().uuid(), submittedBy: rosterActor }).safeParse(input);
   if (!parsed.success) return fail("Pick an athlete to delete.");
 
@@ -329,6 +334,8 @@ export async function deleteAthlete(input: { id: string; submittedBy: string }):
 // ---------------------------------------------------------------------------
 
 export async function deleteResult(formData: FormData): Promise<ActionResult> {
+  if (await submissionsLocked()) return fail(SUBMISSIONS_LOCKED_MESSAGE);
+
   const id = String(formData.get("resultId") ?? "");
   const actor = String(formData.get("submittedBy") ?? "").trim() || "anonymous";
   if (!id) return fail("Missing result id.");
@@ -725,6 +732,8 @@ async function restoreAthlete(tx: Tx, entry: AuditEntry): Promise<string> {
  * exactly like any other change.
  */
 export async function restoreChange(formData: FormData): Promise<ActionResult> {
+  if (await submissionsLocked()) return fail(SUBMISSIONS_LOCKED_MESSAGE);
+
   const entryId = Number(formData.get("entryId"));
   const actor = String(formData.get("submittedBy") ?? "").trim() || "anonymous";
   if (!Number.isFinite(entryId)) return fail("Missing change id.");

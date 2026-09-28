@@ -16,9 +16,11 @@ import type { ActionResult } from "@/lib/actions";
 export function DeleteResultButton({
   resultId,
   athleteName,
+  locked = false,
 }: {
   resultId: string;
   athleteName: string;
+  locked?: boolean;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [name] = useScorekeeperName();
@@ -36,7 +38,8 @@ export function DeleteResultButton({
       <button
         type="button"
         onClick={() => setConfirming(true)}
-        className="text-xs text-muted underline-offset-4 hover:text-accent hover:underline"
+        disabled={locked}
+        className="text-xs text-muted underline-offset-4 hover:text-accent hover:underline disabled:opacity-40"
       >
         Remove
       </button>
@@ -48,7 +51,7 @@ export function DeleteResultButton({
       <input type="hidden" name="resultId" value={resultId} />
       <input type="hidden" name="submittedBy" value={name} />
       <span className="text-xs text-muted">Remove {athleteName}?</span>
-      <button type="submit" disabled={pending} className="text-xs font-semibold text-accent hover:underline">
+      <button type="submit" disabled={pending || locked} className="text-xs font-semibold text-accent hover:underline disabled:opacity-40">
         {pending ? "Removing…" : "Yes"}
       </button>
       <button

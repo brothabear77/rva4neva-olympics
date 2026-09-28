@@ -9,20 +9,28 @@ import { boolFlag } from "./launchdarkly";
  * LaunchDarkly must never lock the scoreboard.
  */
 
-/** On means new scores cannot be submitted. Off (or unreachable) means submissions are open. */
+/**
+ * On means the scores are frozen: nothing can be submitted, deleted or restored from
+ * the change history. Off (or unreachable) means everything is open. The key is
+ * "submission-lock" because that is what it was first created for; it now covers all
+ * three.
+ */
 export const SUBMISSION_LOCK_FLAG = "submission-lock";
 
-export const SUBMISSIONS_LOCKED_MESSAGE =
-  "Score submissions are paused right now, so nothing was saved. Check back soon.";
+export const SUBMISSIONS_LOCKED_MESSAGE = "The scoreboard is currently locked.";
 
 /**
- * Whether new scores are currently blocked.
+ * Whether the scores are currently frozen.
  *
- * This is what stops a submission, not the page: the grid and the CSV upload are
- * disabled while it is true, but anyone can post to a server action directly, so
- * submitGrid and commitImport ask this themselves. Corrections (deleting a score,
- * rolling a change back, retuning a scale) and roster edits are deliberately not
- * covered, so a mistake can still be fixed while submissions are paused.
+ * This is what stops a change, not the page: the grid, the CSV import and the
+ * remove/undo/delete buttons are disabled while it is true, but anyone can post to a
+ * server action directly, so each action asks this itself. Covered: submitGrid and
+ * commitImport (adding scores), deleteScores, deleteResult and deleteAthlete (removing
+ * them; deleting an athlete removes their scores too) and restoreChange (undoing a
+ * change from the history).
+ *
+ * Deliberately not covered: adding or renaming an athlete, which touch no scores, and
+ * retuning an event's scale.
  */
 export function submissionsLocked(): Promise<boolean> {
   return boolFlag(SUBMISSION_LOCK_FLAG, false);

@@ -20,7 +20,7 @@ export function SubmitPanels({
   events: Event[];
   athletes: Athlete[];
   results: StoredResult[];
-  /** New scores are blocked (see src/lib/flags.ts): the grid's add mode and the CSV import are disabled. */
+  /** The scoreboard is locked (see src/lib/flags.ts): the grid and the CSV import are disabled. */
   locked?: boolean;
 }) {
   const [mode, setMode] = useState<Mode>("grid");

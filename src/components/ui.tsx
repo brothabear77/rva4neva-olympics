@@ -82,17 +82,15 @@ export function RankBadge({ rank }: { rank: number }) {
   );
 }
 
-export function Banner({ tone, children }: { tone: "ok" | "error"; children: ReactNode }) {
+const BANNER_TONES = {
+  ok: "border-accent/40 bg-accent/10 text-accent",
+  error: "border-[var(--edge-strong)] bg-surface/40 text-paper",
+  locked: "border-red-500/60 bg-red-500/15 text-red-200",
+} as const;
+
+export function Banner({ tone, children }: { tone: keyof typeof BANNER_TONES; children: ReactNode }) {
   return (
-    <div
-      role="status"
-      className={[
-        "rounded-lg border px-4 py-3 text-sm",
-        tone === "ok"
-          ? "border-accent/40 bg-accent/10 text-accent"
-          : "border-[var(--edge-strong)] bg-surface/40 text-paper",
-      ].join(" ")}
-    >
+    <div role="status" className={["rounded-lg border px-4 py-3 text-sm", BANNER_TONES[tone]].join(" ")}>
       {children}
     </div>
   );

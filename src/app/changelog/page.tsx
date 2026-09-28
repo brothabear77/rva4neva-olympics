@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ChangeLogTable } from "@/components/ChangeLogTable";
+import { LockedBanner } from "@/components/LockedBanner";
 import { EmptyState, PageHeader } from "@/components/ui";
+import { submissionsLocked } from "@/lib/flags";
 import { getChangeLog } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Change History" };
 
 export default async function ChangeLogPage() {
-  const entries = await getChangeLog(200);
+  const [entries, locked] = await Promise.all([getChangeLog(200), submissionsLocked()]);
 
   return (
     <>
@@ -23,13 +25,15 @@ export default async function ChangeLogPage() {
         }
       />
 
+      {locked ? <LockedBanner /> : null}
+
       {entries.length === 0 ? (
         <EmptyState title="Nothing has changed yet">
           The history fills in as results are submitted.
         </EmptyState>
       ) : (
         <>
-          <ChangeLogTable entries={entries} />
+          <ChangeLogTable entries={entries} locked={locked} />
           {entries.length >= 200 ? (
             <p className="mt-4 text-xs text-muted">
               Showing the 200 most recent changes.
