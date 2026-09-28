@@ -50,8 +50,8 @@ export const EVENT_GUIDES: EventGuideEntry[] = [
   // },
   {
     slug: "50m-swim",
-    summary: "One swim, timed.",
-    rules: ["End to end, fastest time wins."],
+    summary: "Swim 50m freestyle",
+    rules: [],
     media: {
       youtube: "https://youtu.be/_dhbGLqJuHA?si=E2uDdiTQO2SWteo8&start=10",
       poster: "/events/50m-swim-still.jpg",
@@ -59,8 +59,8 @@ export const EVENT_GUIDES: EventGuideEntry[] = [
   },
   {
     slug: "shuttle-run",
-    summary: "5 yards, then 10 the other way, then 5 back",
-    rules: [],
+    summary: "5 yards, then 10 the other way, then 5 back to finish",
+    rules: ["Three attempts, best time is marked", "Start with body square to center line", "Must touch lines at each end with hand", "Allowed to choose either direction to start"],
     media: {
       youtube: "https://youtu.be/873enchzUKw?si=rI478f-JkRXaog48&start=56",
       poster: "/events/shuttle-run-still.jpg",
@@ -69,7 +69,7 @@ export const EVENT_GUIDES: EventGuideEntry[] = [
   {
     slug: "jump-rope",
     summary: "Jump rope for as many reps as possible in 30 seconds",
-    rules: [],
+    rules: ["Three rounds, best time is marked","Single unders only"],
     media: {
       youtube: "https://youtu.be/BhC7_cTawzE?si=AHtLuw5EjYYfITuH",
       poster: "/events/jump-rope-still.jpg",
@@ -77,7 +77,7 @@ export const EVENT_GUIDES: EventGuideEntry[] = [
   },
   {
     slug: "100m-run",
-    summary: "100 meter sprint",
+    summary: "Run 100 meters as fast as possible",
     rules: [],
     media: {
       src: "/events/just-run-bro-still.jpg",
@@ -85,7 +85,7 @@ export const EVENT_GUIDES: EventGuideEntry[] = [
   },
   {
     slug: "mile-run",
-    summary: "Mile run",
+    summary: "Run a mile as fast as possible",
     rules: [],
     media: {
       src: "/events/just-run-bro-still.jpg",
@@ -93,8 +93,8 @@ export const EVENT_GUIDES: EventGuideEntry[] = [
   },
   {
     slug: "med-ball-toss",
-    summary: "Med ball toss",
-    rules: [],
+    summary: "Throw a medicine ball as far as possible",
+    rules: ["Three throws, best throw marked", "Throw any style", "Cannot cross throwing line", "Throw marked at landing spot, not rolling"],
     media: {
       youtube: "https://www.youtube.com/watch?v=fzc5aGvOfrs",
       poster: "/events/med-ball-toss-still.jpg",
@@ -102,8 +102,8 @@ export const EVENT_GUIDES: EventGuideEntry[] = [
   },
   {
     slug: "vertical-jump",
-    summary: "Vertical jump",
-    rules: [],
+    summary: "Vertical jump for height",
+    rules: ["Three attempts, best height is marked"],
     media: {},
   },
   {
@@ -117,8 +117,8 @@ export const EVENT_GUIDES: EventGuideEntry[] = [
   },
   {
     slug: "stick-drop",
-    summary: "Stick drop",
-    rules: [],
+    summary: "Catch as many sticks as possible",
+    rules: ["Three rounds, total number of sticks caught"],
     media: {
       youtube: "https://www.youtube.com/watch?v=QLjG7lNacWA",
       poster: "/events/stick-drop-still.jpg",
@@ -126,16 +126,16 @@ export const EVENT_GUIDES: EventGuideEntry[] = [
   },
   {
     slug: "cone-drill",
-    summary: "Cone drill",
-    rules: [],
+    summary: "Run through the designed course as fast as possible",
+    rules: ["Three attempts, best time is marked", "Must go around every cone"],
     media: {
       src: "/events/cone-drill.mov"
     },
   },
   {
     slug: "broad-jump",
-    summary: "Broad jump",
-    rules: [],
+    summary: "Broad jump for distance",
+    rules: ["Three attempts, best distance counts", "Measured to heel of landing spot"],
     media: {
       youtube: "https://www.youtube.com/watch?v=c6Etg7bpFfI",
       poster: "/events/broad-jump-still.jpg",

@@ -72,15 +72,26 @@ A push to `main` deploys automatically — `dev` is where you work; merging to `
 
 - **`deploy`** always runs: `npm run deploy -- --ci`, the same script a laptop runs, as
   `rva4neva-olympics-github-deploy`.
-- **`migrate`** runs only when the push touched `drizzle/` (checked by diffing the push
-  against what was running before it — see the workflow file): `npm run aws:db -- --ci`, as
-  a *different* role, `rva4neva-olympics-github-migrate`.
+- **`migrate`** runs only when the push touched `drizzle/`, or touched `scripts/seed.ts`
+  before the event has started (checked by diffing the push against what was running before
+  it, and by calling `hasStarted()` — see the workflow file): `npm run aws:db -- --ci`, as
+  a *different* role, `rva4neva-olympics-github-migrate`. When it's the seed.ts case, `--seed`
+  is appended too.
 
 **Why two roles, not one.** `deploy`'s role cannot read the database's credentials or reach
 it at all — a compromised dependency pulled in during an ordinary code deploy is limited to
 shipping bad app code, not touching the database directly. `migrate`'s role can do both, but
-only exists to, and only runs when a push actually changes the schema — which, on this
-project, is rare. See `infra/cdk/lib/ci-stack.ts` for the exact permissions each gets.
+only exists to, and only runs when a push actually changes the schema (rare) or touches the
+seed data pre-kickoff. See `infra/cdk/lib/ci-stack.ts` for the exact permissions each gets.
+
+**Auto-reseeding stops the moment the event starts.** `aws:db --seed` resets every event's
+name, description and benchmarks to whatever is in `scripts/seed.ts` — harmless before
+kickoff, since nothing real depends on it yet. Once the event is live, someone may have
+retuned a benchmark through the site's own "Adjust scoring scale" form, and an unrelated
+commit that happens to touch `scripts/seed.ts` (a bio typo, say) auto-reseeding would
+silently overwrite that. So this only ever auto-reseeds pre-kickoff (`SITE.startsAt` in
+`src/lib/site.ts`); after that, a seed.ts-only push does nothing to the database, and
+reseeding on purpose means running `npm run aws:db -- --seed` by hand.
 
 **Identity, not keys, for both.** Each role is assumed over OIDC: GitHub mints a short-lived
 token for the job, and the role's trust policy checks it against one exact string —
