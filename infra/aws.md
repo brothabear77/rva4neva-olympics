@@ -5,17 +5,20 @@ Nothing here is needed for local development: `docker compose up -d db` covers t
 
 ```
 your laptop ──docker push──▶ ECR ──▶ App Runner ──(VPC connector)──▶ Aurora
-                                     (HTTPS URL)                        ▲
+                                     (HTTPS URL)        │               ▲
+                                                        ▼               │
+                              NAT instance ──▶ LaunchDarkly             │
                      migrations and psql, from one IP address ──────────┘
 ```
 
 | Piece | What it is | Where it is defined |
 |---|---|---|
 | Registry | ECR repository `rva4neva-olympics`, keeps the last 10 images, tags never overwritten | `infra/cdk/lib/olympics-stack.ts` (`RegistryStack`) |
-| Network | A VPC, two availability zones, public subnets, **no NAT gateway** | `SiteStack` |
+| Network | A VPC, two availability zones. Public subnets (Aurora, the NAT instance) and private subnets (the app's VPC connector only) | `SiteStack` |
+| NAT instance | fck-nat on a `t4g.nano`, in an Auto Scaling group of one: the app's only route to the internet, for LaunchDarkly | `SiteStack` |
 | Database | Aurora Serverless v2, PostgreSQL 17, 0 to 2 ACU, pauses after 5 idle minutes | `SiteStack` |
 | App | App Runner: 0.25 vCPU, 1 GB, one instance always on, at most two | `SiteStack` |
-| Secrets | `rva4neva/database-master` (the owner) and `rva4neva/app-database-url` (what the app uses) | `SiteStack` |
+| Secrets | `rva4neva/database-master` (the owner), `rva4neva/app-database-url` (what the app uses), `rva4neva/launchdarkly-sdk-key` (set by hand, see *Feature flags*) | `SiteStack` |
 
 Infrastructure is AWS CDK in `infra/cdk`, a package of its own, so none of it reaches the
 app's dependencies or its Docker image. Two scripts drive it: `scripts/deploy.ts` and
@@ -209,10 +212,45 @@ Estimates from memory, not live pricing, so check the AWS pricing pages before r
 |---|---|---|
 | App Runner, one instance | about $3 to $6 a month | a few cents more |
 | Aurora at 0 ACU | storage only, cents | about $0.12 per ACU-hour awake |
+| NAT instance (`t4g.nano` + its public IPv4 address) | about $7 a month | same |
 | ECR, Secrets Manager | under $1 a month | same |
 
-There is no NAT gateway (about $32 a month) and no load balancer: the server makes no outbound
-calls of its own, and App Runner brings its own HTTPS front end.
+The one outbound call the server makes is to LaunchDarkly, for feature flags. That goes
+through a NAT *instance* rather than a managed NAT gateway (about $32 a month) for the sake
+of one small stream of flag updates. There is no load balancer: App Runner brings its own
+HTTPS front end.
+
+## Feature flags
+
+Flags live in LaunchDarkly (project `default`); `src/lib/flags.ts` lists the ones the site
+reads. Today that is one: `submission-lock`. On, and nobody can submit new scores (the grid
+and the CSV import are disabled, and the server refuses them); corrections and roster edits
+still work. Flip it in LaunchDarkly's **Production** environment. The site picks the change
+up within seconds, no deploy needed.
+
+**The production SDK key is set by hand, once.** CloudFormation creates the secret with a
+placeholder, which the app treats as no key at all (every flag falls back to its default,
+so submissions stay open). Copy the SDK key from LaunchDarkly (project `default` →
+Environments → Production), then, without putting it in your shell history:
+
+```bash
+read -rs LD_KEY; f=$(mktemp); printf %s "$LD_KEY" > "$f"
+aws secretsmanager put-secret-value --secret-id rva4neva/launchdarkly-sdk-key --secret-string "file://$f"
+rm "$f"; unset LD_KEY
+aws apprunner start-deployment --service-arn <ServiceArn, from the stack outputs>
+```
+
+The restart is needed because App Runner reads secrets only when an instance starts.
+
+**If LaunchDarkly can't be reached** (the NAT instance is being replaced, or LaunchDarkly
+itself is down), running instances keep the last flag values they received and reconnect on
+their own; an instance that starts during the outage uses each flag's default.
+
+**The NAT instance heals itself.** Its Auto Scaling group always holds exactly one instance.
+The private subnets route to a fixed network interface rather than to the instance, and
+whichever instance is running attaches it at boot, so a replacement takes a few minutes and
+needs nothing from you. The AMI is pinned in `olympics-stack.ts`, with the command for
+finding a newer one next to it.
 
 ## Custom domain
 

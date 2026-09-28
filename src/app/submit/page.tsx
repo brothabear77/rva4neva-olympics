@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { RosterEditor } from "@/components/RosterEditor";
 import { SubmitPanels } from "@/components/SubmitPanels";
-import { PageHeader } from "@/components/ui";
+import { Banner, PageHeader } from "@/components/ui";
+import { SUBMISSIONS_LOCKED_MESSAGE, submissionsLocked } from "@/lib/flags";
 import { getAthletes, getEventsForForm, getResultValues, getRoster } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -9,11 +10,12 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Submit Results" };
 
 export default async function SubmitPage() {
-  const [events, athletes, results, roster] = await Promise.all([
+  const [events, athletes, results, roster, locked] = await Promise.all([
     getEventsForForm(),
     getAthletes(),
     getResultValues(),
     getRoster(),
+    submissionsLocked(),
   ]);
 
   return (
@@ -29,7 +31,13 @@ export default async function SubmitPage() {
         }
       />
 
-      <SubmitPanels events={events} athletes={athletes} results={results} />
+      {locked ? (
+        <div className="mb-6">
+          <Banner tone="error">{SUBMISSIONS_LOCKED_MESSAGE}</Banner>
+        </div>
+      ) : null}
+
+      <SubmitPanels events={events} athletes={athletes} results={results} locked={locked} />
 
       <RosterEditor roster={roster} />
     </>

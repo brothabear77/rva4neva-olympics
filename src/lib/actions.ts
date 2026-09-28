@@ -9,6 +9,7 @@ import { isScorable, scoreResult } from "./scoring";
 import { buildImportPreview, parseResultsCsv, type ImportPreview } from "./csv";
 import { MAX_RAW_VALUE, type GridDeletion, type GridSubmission } from "./grid";
 import { checkAthleteName } from "./roster";
+import { SUBMISSIONS_LOCKED_MESSAGE, submissionsLocked } from "./flags";
 
 /**
  * Every write goes through here.
@@ -108,6 +109,8 @@ const gridSchema = z.object({
  * notes column, and overwriting them with blanks would lose them.
  */
 export async function submitGrid(input: GridSubmission): Promise<ActionResult<{ saved: number }>> {
+  if (await submissionsLocked()) return fail(SUBMISSIONS_LOCKED_MESSAGE);
+
   const parsed = gridSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the grid and try again.");
   const { changes, submittedBy } = parsed.data;
@@ -465,6 +468,8 @@ export async function commitImport(
   filename: string,
   submittedBy: string,
 ): Promise<ActionResult<{ created: number; updated: number; unchanged: number }>> {
+  if (await submissionsLocked()) return fail(SUBMISSIONS_LOCKED_MESSAGE);
+
   const actor = submittedBy.trim() || "csv upload";
 
   try {

@@ -5,6 +5,7 @@ import * as ecr from "aws-cdk-lib/aws-ecr";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as rds from "aws-cdk-lib/aws-rds";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
+import { FckNatInstanceProvider } from "cdk-fck-nat";
 import type { Construct } from "constructs";
 
 /** The registry's name. Fixed, so the site can refer to it by name rather than through the other stack. */
@@ -65,19 +66,44 @@ export class SiteStack extends cdk.Stack {
 
     // --- network ----------------------------------------------------------------------
     //
-    // Two availability zones (Aurora insists on two) and public subnets only, with NO NAT
-    // gateway. A NAT gateway is about $32 a month, and it would only serve the app's own
-    // outbound internet traffic, of which there is none: the server calls nothing but the
-    // database. (The YouTube player loads in the visitor's browser, and fonts are fetched
-    // at build time.)
+    // Two availability zones (Aurora insists on two), and two kinds of subnet:
     //
-    // The subnets are public because the database is reachable from your laptop, which
-    // needs a route to the internet. What actually protects the database is its security
-    // group below, not the subnet type.
+    //   public   Aurora, and the NAT instance. Public because the database is reachable
+    //            from your laptop, which needs a route to the internet. What actually
+    //            protects the database is its security group below, not the subnet type.
+    //   private  The app's VPC connector only. Its default route goes through the NAT
+    //            instance, which is the app's one way out to the internet — needed for
+    //            LaunchDarkly (feature flags, src/lib/flags.ts) and nothing else. It still
+    //            reaches Aurora directly over the VPC's own local route.
+    //
+    // A NAT *instance* (fck-nat on a t4g.nano, roughly $3 a month plus its public IPv4
+    // address), not a managed NAT gateway (about $32 a month) for one small stream of
+    // flag updates. It is self-healing: an Auto Scaling group holds exactly one instance,
+    // and the private subnets route to a fixed network interface that whichever instance
+    // is running attaches at boot, so a replacement needs no route change. If it is down,
+    // running app instances keep their last flag values and new ones fall back to "open".
+    //
+    // The AMI is pinned rather than looked up: a lookup needs AWS credentials at synth
+    // time, and CI synthesizes without any. To update, take the newest ID from
+    //   aws ec2 describe-images --owners 568608671756 \
+    //     --filters "Name=name,Values=fck-nat-al2023-*-arm64-ebs" \
+    //     --query 'sort_by(Images,&CreationDate)[-1].ImageId'
+    //
+    // The private group is listed after the public one on purpose: subnets get their
+    // address ranges in this order, so appending never moves the existing public subnets
+    // (and Aurora with them).
+    const natProvider = new FckNatInstanceProvider({
+      instanceType: new ec2.InstanceType("t4g.nano"),
+      machineImage: ec2.MachineImage.genericLinux({ "us-east-1": "ami-057efe8665d31018f" }), // fck-nat 1.4.0, 2026-07-01
+    });
     const vpc = new ec2.Vpc(this, "Vpc", {
       maxAzs: 2,
-      natGateways: 0,
-      subnetConfiguration: [{ name: "public", subnetType: ec2.SubnetType.PUBLIC, cidrMask: 24 }],
+      natGateways: 1,
+      natGatewayProvider: natProvider,
+      subnetConfiguration: [
+        { name: "public", subnetType: ec2.SubnetType.PUBLIC, cidrMask: 24 },
+        { name: "private", subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS, cidrMask: 24 },
+      ],
     });
 
     // --- who may talk to the database ---------------------------------------------------
@@ -86,6 +112,9 @@ export class SiteStack extends cdk.Stack {
       description: "App Runner instances, through the VPC connector",
       allowAllOutbound: true,
     });
+    // The NAT instance's own security group admits nothing by default. HTTPS from the app
+    // is all that has to pass through it.
+    natProvider.securityGroup.addIngressRule(appSecurityGroup, ec2.Port.tcp(443), "App Runner, HTTPS out through the NAT");
 
     const databaseSecurityGroup = new ec2.SecurityGroup(this, "DatabaseSecurityGroup", {
       vpc,
@@ -155,9 +184,20 @@ export class SiteStack extends cdk.Stack {
       secretStringValue: cdk.SecretValue.unsafePlainText("not-provisioned-yet"),
     });
 
+    // --- LaunchDarkly -----------------------------------------------------------------------
+    //
+    // The server-side SDK key for LaunchDarkly's Production environment. Set by hand once
+    // (see "Feature flags" in infra/aws.md); CloudFormation only ever writes the
+    // placeholder, which the app treats the same as no key: flags fall back to defaults.
+    const launchDarklySdkKey = new secretsmanager.Secret(this, "LaunchDarklySdkKey", {
+      secretName: "rva4neva/launchdarkly-sdk-key",
+      description: "LaunchDarkly server-side SDK key (Production environment). Set by hand; see infra/aws.md.",
+      secretStringValue: cdk.SecretValue.unsafePlainText("not-provisioned-yet"),
+    });
+
     // --- App Runner ------------------------------------------------------------------------
     // The access role lets App Runner pull the image from the registry. The instance role is
-    // what the running app is allowed to do: read its one secret, and nothing else.
+    // what the running app is allowed to do: read its two secrets, and nothing else.
     const accessRole = new iam.Role(this, "AccessRole", {
       assumedBy: new iam.ServicePrincipal("build.apprunner.amazonaws.com"),
       managedPolicies: [
@@ -168,10 +208,15 @@ export class SiteStack extends cdk.Stack {
       assumedBy: new iam.ServicePrincipal("tasks.apprunner.amazonaws.com"),
     });
     appDatabaseUrl.grantRead(instanceRole);
+    launchDarklySdkKey.grantRead(instanceRole);
 
+    // In the private subnets, so the app's outbound traffic has the NAT instance as a way
+    // out. A connector's subnets cannot change in place, and CloudFormation cannot replace
+    // a resource that keeps its custom name, which is why this is no longer plain
+    // "rva4neva-olympics".
     const connector = new apprunner.CfnVpcConnector(this, "VpcConnector", {
-      vpcConnectorName: "rva4neva-olympics",
-      subnets: vpc.publicSubnets.map((subnet) => subnet.subnetId),
+      vpcConnectorName: "rva4neva-olympics-private",
+      subnets: vpc.privateSubnets.map((subnet) => subnet.subnetId),
       securityGroups: [appSecurityGroup.securityGroupId],
     });
 
@@ -200,8 +245,11 @@ export class SiteStack extends cdk.Stack {
               // what even a small Aurora allows.
               { name: "DATABASE_POOL_MAX", value: "4" },
             ],
-            // App Runner fetches this at startup, so a changed value needs a new deployment.
-            runtimeEnvironmentSecrets: [{ name: "DATABASE_URL", value: appDatabaseUrl.secretArn }],
+            // App Runner fetches these at startup, so a changed value needs a new deployment.
+            runtimeEnvironmentSecrets: [
+              { name: "DATABASE_URL", value: appDatabaseUrl.secretArn },
+              { name: "LAUNCHDARKLY_SDK_KEY", value: launchDarklySdkKey.secretArn },
+            ],
           },
         },
       },
@@ -217,7 +265,8 @@ export class SiteStack extends cdk.Stack {
         unhealthyThreshold: 5,
       },
       networkConfiguration: {
-        // All outbound traffic goes through the VPC, which is how the app reaches Aurora.
+        // All outbound traffic goes through the VPC: Aurora directly, the internet
+        // (LaunchDarkly) through the NAT instance.
         egressConfiguration: { egressType: "VPC", vpcConnectorArn: connector.attrVpcConnectorArn },
         ingressConfiguration: { isPubliclyAccessible: true },
       },
@@ -234,5 +283,6 @@ export class SiteStack extends cdk.Stack {
     new cdk.CfnOutput(this, "DatabaseSecurityGroupId", { value: databaseSecurityGroup.securityGroupId });
     new cdk.CfnOutput(this, "DatabaseMasterSecretArn", { value: database.secret!.secretArn });
     new cdk.CfnOutput(this, "AppDatabaseUrlSecretArn", { value: appDatabaseUrl.secretArn });
+    new cdk.CfnOutput(this, "LaunchDarklySdkKeySecretArn", { value: launchDarklySdkKey.secretArn });
   }
 }

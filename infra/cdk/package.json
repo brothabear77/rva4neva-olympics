@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "aws-cdk-lib": "^2",
+    "cdk-fck-nat": "^1.6.22",
     "constructs": "^10"
   },
   "devDependencies": {
