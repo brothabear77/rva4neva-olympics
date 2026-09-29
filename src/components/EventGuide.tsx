@@ -142,12 +142,7 @@ export function EventGuide({ events, initialSlug }: { events: GuideEvent[]; init
               <h3 className="eyebrow mb-2">How it&apos;s scored</h3>
               {current.scale ? (
                 <>
-                  <p className="text-sm leading-relaxed text-muted">
-                    Points run in a straight line between two marks. Beating the top mark
-                    scores over 100, and nothing scores below 0.
-                  </p>
-
-                  <dl className="mt-4 grid grid-cols-2 gap-3">
+                  <dl className="grid grid-cols-2 gap-3">
                     <div className="card p-3">
                       <dt className="eyebrow">Worth 100 points</dt>
                       <dd className="tnum mt-1 font-display text-2xl font-bold text-accent">{current.scale.top}</dd>
@@ -179,6 +174,12 @@ export function EventGuide({ events, initialSlug }: { events: GuideEvent[]; init
               ) : (
                 <p className="text-sm text-muted">This event&apos;s scoring scale hasn&apos;t been set yet.</p>
               )}
+              <Link
+                href="/info/scoring"
+                className="mt-3 inline-block text-sm text-muted underline-offset-4 hover:text-accent hover:underline"
+              >
+                How scoring works &rarr;
+              </Link>
             </section>
           </div>
 

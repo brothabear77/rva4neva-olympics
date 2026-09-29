@@ -49,6 +49,7 @@ export const NAV: readonly NavItem[] = [
     items: [
       { href: "/info/athletes", label: "Athletes" },
       { href: "/info/events-guide", label: "Event Guide" },
+      { href: "/info/scoring", label: "Scoring" },
       { href: "/info/calculator", label: "Calculator" },
     ],
   },
