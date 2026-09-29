@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { updateEventBenchmarks } from "@/lib/actions";
 import { Banner } from "./ui";
@@ -62,8 +63,10 @@ export function BenchmarkForm({
           Scoring scale
         </h3>
         <p className="mt-1 text-sm text-muted">
-          Two anchors define the whole event. For a timed event the 100-point
-          mark is the <em>faster</em> number.
+          For a timed event, the 100-point mark is the <em>faster</em> number.{" "}
+          <Link href="/info/scoring" className="underline-offset-4 hover:text-accent hover:underline">
+            How scoring works &rarr;
+          </Link>
         </p>
       </div>
 

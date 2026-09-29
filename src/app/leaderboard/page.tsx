@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { LeaderboardTable } from "@/components/LeaderboardTable";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import { EmptyState, PageHeader, Stat } from "@/components/ui";
@@ -22,7 +23,7 @@ export default async function LeaderboardPage() {
       <PageHeader
         eyebrow="Overall standings"
         title="Leaderboard"
-        description="Every event converts to points on the same scale, so totals are comparable across the whole competition."
+        description="Every athlete's total is the sum of their points across every event."
         actions={<LiveRefresh />}
       />
 
@@ -58,7 +59,10 @@ export default async function LeaderboardPage() {
           <LeaderboardTable entries={entries} events={events} />
 
           <p className="mt-4 text-xs text-muted">
-            Tap an athlete to see their score in every event. Ties share a rank.
+            Tap an athlete to see their score in every event.{" "}
+            <Link href="/info/scoring" className="underline-offset-4 hover:text-accent hover:underline">
+              How scoring works &rarr;
+            </Link>
           </p>
         </>
       )}

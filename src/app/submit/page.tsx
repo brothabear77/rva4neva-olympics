@@ -24,7 +24,6 @@ export default async function SubmitPage() {
       <PageHeader
         eyebrow="Anyone can score"
         title="Submit Results"
-        description="No login — post a score from wherever you are standing. Every change is recorded with whoever's name is on it, and anything can be rolled back."
         actions={
           <Link href="/changelog" className="btn btn-ghost">
             History

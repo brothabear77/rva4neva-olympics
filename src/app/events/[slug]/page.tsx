@@ -74,10 +74,12 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
         <p className="tnum mt-1 text-sm text-paper">
           {describeScale(event, event.decimals, event.unitLabel)}
         </p>
-        <p className="mt-2 text-xs text-muted">
-          Points run in a straight line between the two marks, and beating the top
-          mark scores above 100.
-        </p>
+        <Link
+          href="/info/scoring"
+          className="mt-2 inline-block text-xs text-muted underline-offset-4 hover:text-accent hover:underline"
+        >
+          How scoring works &rarr;
+        </Link>
       </div>
 
       {rows.length === 0 ? (
