@@ -10,8 +10,17 @@ import { buildImportPreview, parseResultsCsv, type ImportPreview } from "./csv";
 import { MAX_RAW_VALUE, type GridDeletion, type GridSubmission } from "./grid";
 import { checkAthleteName } from "./roster";
 import { SUBMISSIONS_LOCKED_MESSAGE, submissionsLocked } from "./flags";
-import { getTrack, searchTracks } from "./spotify";
-import { MAX_QUERY_LENGTH, MIN_QUERY_LENGTH, isMissingTable, isTrackId, spotifyTrackId, type WalkoutSong } from "./walkout";
+import { getWalkoutItem, searchTracks } from "./spotify";
+import {
+  MAX_QUERY_LENGTH,
+  MIN_QUERY_LENGTH,
+  describeWalkout,
+  isMigrationPending,
+  isSpotifyId,
+  parseSpotifyLink,
+  type WalkoutKind,
+  type WalkoutSong,
+} from "./walkout";
 
 /**
  * Every write goes through here.
@@ -343,14 +352,16 @@ const SONGS_NOT_READY = "Walkout songs are still being set up. Try again in a fe
 /**
  * Songs matching what was typed. A pasted Spotify link (or uri, or bare track id) is
  * looked up directly, so it sets that exact track instead of whatever a search ranks first.
+ * An episode can only be set this way; search finds tracks.
  */
 export async function searchWalkoutSongs(query: string): Promise<ActionResult<WalkoutSong[]>> {
   const text = String(query ?? "").trim();
   if (text.length < MIN_QUERY_LENGTH) return fail("Type at least two letters.");
   if (text.length > MAX_QUERY_LENGTH) return fail("That search is too long.");
 
-  const pasted = spotifyTrackId(text);
-  const found = pasted ? await getTrack(pasted) : await searchTracks(text);
+  const pasted = parseSpotifyLink(text);
+  if (pasted?.kind === "other") return fail("That link isn't a song. Paste a link to a song or a podcast episode.");
+  const found = pasted ? await getWalkoutItem(pasted.kind, pasted.id) : await searchTracks(text);
   if (!found.ok) return fail(found.message);
 
   const songs = Array.isArray(found.data) ? found.data : [found.data];
@@ -360,36 +371,44 @@ export async function searchWalkoutSongs(query: string): Promise<ActionResult<Wa
 /**
  * Give an athlete a walkout song, replacing any they had.
  *
- * Only the track id is taken from the browser. The title, artists and artwork are
- * fetched from Spotify here, so what is stored is what Spotify says that track is.
+ * Only the kind and id are taken from the browser. The title, artists and artwork are
+ * fetched from Spotify here, so what is stored is what Spotify says that item is.
  */
-export async function setWalkoutSong(input: { athleteId: string; trackId: string }): Promise<ActionResult> {
+export async function setWalkoutSong(input: {
+  athleteId: string;
+  kind: WalkoutKind;
+  spotifyId: string;
+}): Promise<ActionResult> {
   const parsed = z
-    .object({ athleteId: z.string().uuid(), trackId: z.string().refine(isTrackId) })
+    .object({
+      athleteId: z.string().uuid(),
+      kind: z.enum(["track", "episode"]),
+      spotifyId: z.string().refine(isSpotifyId),
+    })
     .safeParse(input);
   if (!parsed.success) return fail("Pick a song from the list and try again.");
 
-  const track = await getTrack(parsed.data.trackId);
-  if (!track.ok) return fail(track.message);
-  const { trackId, title, artists, albumArtUrl } = track.data;
+  const item = await getWalkoutItem(parsed.data.kind, parsed.data.spotifyId);
+  if (!item.ok) return fail(item.message);
+  const { kind, spotifyId, title, artists, albumArtUrl } = item.data;
 
   try {
     await db
       .insert(walkoutSongs)
-      .values({ athleteId: parsed.data.athleteId, trackId, title, artists, albumArtUrl })
+      .values({ athleteId: parsed.data.athleteId, kind, spotifyId, title, artists, albumArtUrl })
       .onConflictDoUpdate({
         target: walkoutSongs.athleteId,
-        set: { trackId, title, artists, albumArtUrl, updatedAt: sql`now()` },
+        set: { kind, spotifyId, title, artists, albumArtUrl, updatedAt: sql`now()` },
       });
   } catch (error) {
     // 23503: the athlete was removed after this page loaded.
     if ((error as { code?: string }).code === "23503") return fail("That athlete is no longer on the roster. Reload the page.");
-    if (isMissingTable(error)) return fail(SONGS_NOT_READY);
+    if (isMigrationPending(error)) return fail(SONGS_NOT_READY);
     return fail(describeError(error));
   }
 
   revalidatePath("/info/athletes");
-  return ok(`Walkout song set to ${title} by ${artists}.`);
+  return ok(`Walkout song set to ${describeWalkout(item.data)}.`);
 }
 
 export async function clearWalkoutSong(input: { athleteId: string }): Promise<ActionResult> {
@@ -399,7 +418,7 @@ export async function clearWalkoutSong(input: { athleteId: string }): Promise<Ac
   try {
     await db.delete(walkoutSongs).where(eq(walkoutSongs.athleteId, parsed.data.athleteId));
   } catch (error) {
-    if (isMissingTable(error)) return fail(SONGS_NOT_READY);
+    if (isMigrationPending(error)) return fail(SONGS_NOT_READY);
     return fail(describeError(error));
   }
 

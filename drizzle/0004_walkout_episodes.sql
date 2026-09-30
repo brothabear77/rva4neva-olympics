@@ -1,0 +1,1 @@
+ALTER TABLE "app"."walkout_songs" ADD COLUMN "kind" text DEFAULT 'track' NOT NULL;
