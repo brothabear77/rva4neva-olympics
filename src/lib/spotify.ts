@@ -1,9 +1,16 @@
 import "server-only";
-import { toWalkoutSong, type SpotifyTrackJson, type WalkoutSong } from "./walkout";
+import {
+  episodeToWalkoutSong,
+  toWalkoutSong,
+  type SpotifyEpisodeJson,
+  type SpotifyTrackJson,
+  type WalkoutKind,
+  type WalkoutSong,
+} from "./walkout";
 
 /**
- * The Spotify Web API, as far as walkout songs need it: search for a track, and look one
- * up by id. No visitor signs in to anything, so this uses the Client Credentials flow —
+ * The Spotify Web API, as far as walkout songs need it: search for a track, and look up a
+ * track or a podcast episode by id. No visitor signs in to anything, so this uses the Client Credentials flow —
  * the site's own token, from its client id and secret.
  *
  * Nothing here throws. A failure comes back as `{ ok: false, message }` with words that
@@ -18,6 +25,12 @@ const API_URL = "https://api.spotify.com/v1";
 const TIMEOUT_MS = 5_000;
 /** Spotify's development-mode apps are capped on search page size; stay well under it. */
 const SEARCH_LIMIT = 8;
+/**
+ * Spotify's docs say that with the site's own token (no signed-in user) an episode counts
+ * as unavailable unless a market is named. It answered without one when tried, but naming
+ * one costs nothing.
+ */
+const EPISODE_MARKET = "US";
 
 function credentials(): { id: string; secret: string } | null {
   const id = process.env.SPOTIFY_CLIENT_ID?.trim();
@@ -47,6 +60,7 @@ export type SpotifyResult<T> = { ok: true; data: T } | { ok: false; message: str
 
 const UNREACHABLE = "Couldn't reach Spotify. Try again in a minute.";
 const NOT_CONFIGURED = "Song search isn't set up on this site yet.";
+const NOT_FOUND = "Spotify has nothing at that link.";
 
 async function accessToken(forceRefresh = false): Promise<string | null> {
   const creds = credentials();
@@ -94,7 +108,7 @@ async function apiGet<T>(path: string): Promise<SpotifyResult<T>> {
       });
 
       if (response.status === 401 && !forceRefresh) continue;
-      if (response.status === 404) return { ok: false, message: "Spotify has no song with that link." };
+      if (response.status === 404) return { ok: false, message: NOT_FOUND };
       if (response.status === 429) return { ok: false, message: "Spotify is busy. Try again in a minute." };
       if (!response.ok) {
         console.warn(`Spotify ${path.split("?")[0]} answered ${response.status}`);
@@ -127,5 +141,20 @@ export async function getTrack(trackId: string): Promise<SpotifyResult<WalkoutSo
   if (!found.ok) return found;
 
   const song = toWalkoutSong(found.data);
-  return song ? { ok: true, data: song } : { ok: false, message: "Spotify has no song with that link." };
+  return song ? { ok: true, data: song } : { ok: false, message: NOT_FOUND };
+}
+
+/** One podcast episode by its id, as a walkout song. */
+export async function getEpisode(episodeId: string): Promise<SpotifyResult<WalkoutSong>> {
+  const params = new URLSearchParams({ market: EPISODE_MARKET });
+  const found = await apiGet<SpotifyEpisodeJson | null>(`/episodes/${encodeURIComponent(episodeId)}?${params}`);
+  if (!found.ok) return found;
+
+  const song = episodeToWalkoutSong(found.data);
+  return song ? { ok: true, data: song } : { ok: false, message: NOT_FOUND };
+}
+
+/** A track or an episode, whichever `kind` says it is. */
+export function getWalkoutItem(kind: WalkoutKind, spotifyId: string): Promise<SpotifyResult<WalkoutSong>> {
+  return kind === "episode" ? getEpisode(spotifyId) : getTrack(spotifyId);
 }

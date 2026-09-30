@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { clearWalkoutSong, searchWalkoutSongs, setWalkoutSong } from "@/lib/actions";
-import { MAX_QUERY_LENGTH, MIN_QUERY_LENGTH, embedUrl, type WalkoutSong } from "@/lib/walkout";
+import { MAX_QUERY_LENGTH, MIN_QUERY_LENGTH, describeWalkout, embedHeight, embedUrl, type WalkoutSong } from "@/lib/walkout";
 import { Banner } from "./ui";
 
 const ROUND_BUTTON =
@@ -20,7 +20,8 @@ type Panel = "player" | "search" | null;
  * A small play button appears when a song is set; it opens Spotify's own compact player
  * under the name (Spotify no longer hands out raw preview audio, so the player is theirs,
  * and mounts only when opened — a page of athletes does not load a page of players). The
- * Spotify logo beside it opens a search box for choosing or changing the song.
+ * Spotify logo beside it opens a search box for choosing or changing the song. Pasting a
+ * podcast episode's link sets that episode instead; search itself only finds songs.
  *
  * `searchable` is false when the site has no Spotify credentials: the play button still
  * works, since the player loads in the visitor's browser, but there is nothing to search.
@@ -92,7 +93,7 @@ export function WalkoutHeading({
 
   const pick = (song: WalkoutSong) =>
     startSaving(async () => {
-      const result = await setWalkoutSong({ athleteId, trackId: song.trackId });
+      const result = await setWalkoutSong({ athleteId, kind: song.kind, spotifyId: song.spotifyId });
       if (result.ok) closeSearch();
       else setMessage({ tone: "error", text: result.message });
     });
@@ -118,7 +119,7 @@ export function WalkoutHeading({
             onClick={() => toggle("player")}
             aria-expanded={playerOpen}
             aria-controls={`${panelId}-player`}
-            aria-label={`Play ${name}'s walkout song: ${walkout.title} by ${walkout.artists}`}
+            aria-label={`Play ${name}'s walkout song: ${describeWalkout(walkout)}`}
             title={`${walkout.title} — ${walkout.artists}`}
             className={[
               ROUND_BUTTON,
@@ -161,11 +162,11 @@ export function WalkoutHeading({
       {playerOpen && walkout ? (
         <div id={`${panelId}-player`} className="mt-3">
           <iframe
-            key={walkout.trackId}
-            src={embedUrl(walkout.trackId)}
-            title={`${walkout.title} by ${walkout.artists}, on Spotify`}
+            key={`${walkout.kind}:${walkout.spotifyId}`}
+            src={embedUrl(walkout)}
+            title={`${describeWalkout(walkout)}, on Spotify`}
             width="100%"
-            height="80"
+            height={embedHeight(walkout.kind)}
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
             loading="lazy"
             className="block max-w-xl rounded-xl border-0"
@@ -192,7 +193,7 @@ export function WalkoutHeading({
             maxLength={MAX_QUERY_LENGTH}
             autoFocus
             autoComplete="off"
-            placeholder="Search Spotify, or paste a track link"
+            placeholder="Search Spotify, or paste a song or episode link"
             className="field"
           />
 
@@ -201,7 +202,7 @@ export function WalkoutHeading({
           {results.length > 0 ? (
             <ul className="divide-y divide-[var(--edge)] overflow-hidden rounded-lg border border-[var(--edge)]">
               {results.map((song) => (
-                <li key={song.trackId}>
+                <li key={`${song.kind}:${song.spotifyId}`}>
                   <button
                     type="button"
                     onClick={() => pick(song)}
