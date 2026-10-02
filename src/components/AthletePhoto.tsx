@@ -25,7 +25,25 @@ import { initials } from "@/lib/profiles";
  * never hear about it; the effect checks for an image that has already failed
  * to load.
  */
-export function AthletePhoto({ name, src }: { name: string; src?: string }) {
+const BOX_SIZE = {
+  md: "h-24 w-24 sm:h-32 sm:w-32",
+  lg: "h-28 w-28 sm:h-40 sm:w-40 lg:h-48 lg:w-48",
+} as const;
+const INITIALS_TEXT_SIZE = {
+  md: "text-3xl sm:text-4xl",
+  lg: "text-4xl sm:text-5xl lg:text-6xl",
+} as const;
+
+export function AthletePhoto({
+  name,
+  src,
+  size = "md",
+}: {
+  name: string;
+  src?: string;
+  /** "lg" for a spot with room to spare, like the homepage champion. */
+  size?: keyof typeof BOX_SIZE;
+}) {
   const [failed, setFailed] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
 
@@ -38,7 +56,7 @@ export function AthletePhoto({ name, src }: { name: string; src?: string }) {
 
   if (showPhoto && src) {
     return (
-      <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-surface sm:h-32 sm:w-32">
+      <div className={`${BOX_SIZE[size]} shrink-0 overflow-hidden rounded-lg bg-surface`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           ref={imgRef}
@@ -55,7 +73,7 @@ export function AthletePhoto({ name, src }: { name: string; src?: string }) {
   return (
     <span
       aria-hidden="true"
-      className="flex h-24 w-24 shrink-0 items-center justify-center rounded-lg bg-surface font-display text-3xl font-bold text-muted sm:h-32 sm:w-32 sm:text-4xl"
+      className={`flex ${BOX_SIZE[size]} shrink-0 items-center justify-center rounded-lg bg-surface font-display font-bold text-muted ${INITIALS_TEXT_SIZE[size]}`}
     >
       {initials(name)}
     </span>
