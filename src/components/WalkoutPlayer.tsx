@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { embedHeight, type WalkoutSong } from "@/lib/walkout";
-const zIndex = 10
+const zIndex = -10
 
 /**
  * The champion's walkout song, autoplaying on loop. Spotify's plain
