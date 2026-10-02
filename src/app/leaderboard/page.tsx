@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { LeaderboardTable } from "@/components/LeaderboardTable";
 import { LiveRefresh } from "@/components/LiveRefresh";
+import { Superlatives } from "@/components/Superlatives";
 import { EmptyState, PageHeader, Stat } from "@/components/ui";
+import { SUPERLATIVE_CATEGORIES } from "@/content/superlatives";
 import { getEventsForForm, getLeaderboard } from "@/lib/queries";
+import { computeSuperlatives } from "@/lib/superlatives";
 
 // Standings change while people are watching; never serve a cached copy.
 export const dynamic = "force-dynamic";
@@ -17,6 +20,15 @@ export default async function LeaderboardPage() {
   const runnerUp = scored.find((e) => e.rank > 1);
   const margin = leader && runnerUp ? leader.totalPoints - runnerUp.totalPoints : 0;
   const totalResults = entries.reduce((sum, e) => sum + e.eventsCompleted, 0);
+
+  const superlatives = computeSuperlatives(
+    SUPERLATIVE_CATEGORIES,
+    entries.map((e) => ({
+      athleteId: e.athleteId,
+      athleteName: e.athleteName,
+      pointsBySlug: Object.fromEntries(Object.values(e.byEventId).map((r) => [r.eventSlug, r.points])),
+    })),
+  );
 
   return (
     <>
@@ -57,6 +69,8 @@ export default async function LeaderboardPage() {
           </div>
 
           <LeaderboardTable entries={entries} events={events} />
+
+          <Superlatives results={superlatives} />
 
           <p className="mt-4 text-xs text-muted">
             Tap an athlete to see their score in every event.{" "}
