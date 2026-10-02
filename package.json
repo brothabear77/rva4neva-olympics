@@ -16,6 +16,7 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:seed:results": "tsx scripts/seed.ts --with-results",
+    "db:fixtures": "tsx scripts/fixtures.ts",
     "resize-photo": "tsx scripts/resize-photo.ts",
     "db:studio": "drizzle-kit studio",
     "db:psql": "docker compose exec db psql -U olympics -d olympics",

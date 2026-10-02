@@ -38,8 +38,11 @@ const LEAVE = { 1: "animate-quote-out-left", [-1]: "animate-quote-out-right" } a
  * the tab is hidden. There is also an explicit pause button for touch screens,
  * where none of those apply. With reduced motion requested it starts paused and
  * changes quotes without sliding.
+ *
+ * `compact` drops the quote down a size, for a narrower spot than the full-width
+ * hero it was built for (beside the countdown on the live homepage, say).
  */
-export function QuoteCarousel({ quotes }: { quotes: Quote[] }) {
+export function QuoteCarousel({ quotes, compact = false }: { quotes: Quote[]; compact?: boolean }) {
   const count = quotes.length;
   // `prev` and `dir` describe the last move, which is what gets animated.
   const [view, setView] = useState<{ index: number; prev: number | null; dir: Direction }>({
@@ -140,7 +143,12 @@ export function QuoteCarousel({ quotes }: { quotes: Quote[] }) {
                 "motion-reduce:animate-none",
               ].join(" ")}
             >
-              <blockquote className="text-balance font-sans text-xl leading-snug text-paper sm:text-2xl">
+              <blockquote
+                className={[
+                  "text-balance text-center font-sans leading-snug text-paper",
+                  compact ? "text-lg sm:text-xl" : "text-xl sm:text-2xl",
+                ].join(" ")}
+              >
                 <p>{`“${quote.text}”`}</p>
               </blockquote>
               {quote.author ? <figcaption className="eyebrow">&mdash; {quote.author}</figcaption> : null}

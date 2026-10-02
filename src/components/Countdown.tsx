@@ -13,10 +13,13 @@ import { useRouter } from "next/navigation";
 export function Countdown({
   startsAt,
   large = false,
+  finished = false,
 }: {
   startsAt: string;
   /** Bigger, centered digits for the pre-launch teaser. */
   large?: boolean;
+  /** Every result slot is filled: "Games Finished" instead of "Games underway". */
+  finished?: boolean;
 }) {
   const router = useRouter();
   const [remaining, setRemaining] = useState<number | null>(null);
@@ -46,7 +49,7 @@ export function Countdown({
   if (remaining <= 0) {
     return (
       <p className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-accent">
-        Games underway
+        {finished ? "Games finished" : "Games underway"}
       </p>
     );
   }

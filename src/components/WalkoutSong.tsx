@@ -167,7 +167,7 @@ export function WalkoutHeading({
             title={`${describeWalkout(walkout)}, on Spotify`}
             width="100%"
             height={embedHeight(walkout.kind)}
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            allow="clipboard-write; encrypted-media; fullscreen; picture-in-picture"
             loading="lazy"
             className="block max-w-xl rounded-xl border-0"
           />

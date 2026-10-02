@@ -5,7 +5,7 @@ import { EVENT_TIME_ZONE, zonedTimeToUtc } from "./time";
  * UTC offset. The offset for that date (EDT or EST) is worked out below, so
  * moving the date across a clock change cannot leave it an hour off.
  */
-const STARTS_AT_LOCAL = "2027-09-04T07:00";
+const STARTS_AT_LOCAL = "2026-09-04T07:00";
 
 /** Event-wide settings. Adjust these once you lock the real dates. */
 export const SITE = {
