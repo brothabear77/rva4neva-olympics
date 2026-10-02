@@ -2,11 +2,12 @@ import "dotenv/config";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { EVENTS } from "../src/lib/eventCatalog";
 import * as schema from "../src/lib/schema";
 import { scoreResult } from "../src/lib/scoring";
 
 /**
- * Seed the ten events and the roster.
+ * Seed the eleven events (src/lib/eventCatalog.ts) and the roster.
  *
  * Events and athletes are upserted, so re-running is safe and never touches
  * scores that have already been submitted. Pass --with-results to also load
@@ -14,64 +15,6 @@ import { scoreResult } from "../src/lib/scoring";
  *
  *   npm run db:seed -- --with-results
  */
-
-const EVENTS = [
-  {
-    slug: "50m-swim", name: "50m Swim", day: 1, sortOrder: 1,
-    unitLabel: "s", decimals: 2, benchmarkStandard: 25, benchmarkZero: 75,
-    description: "Swim 50m freestyle",
-  },
-  {
-    slug: "vertical-jump", name: "Vertical Jump", day: 1, sortOrder: 2,
-    unitLabel: "in", decimals: 1, benchmarkStandard: 36, benchmarkZero: 0,
-    description: "Vertical jump for height",
-  },
-  {
-    slug: "shuttle-run", name: "Shuttle Run", day: 1, sortOrder: 3,
-    unitLabel: "s", decimals: 2, benchmarkStandard: 4.5, benchmarkZero: 9,
-    description: "5 yards, then 10 the other way, then 5 back to finish",
-  },
-  {
-    slug: "jump-rope", name: "Jump Rope", day: 1, sortOrder: 4,
-    unitLabel: "reps", decimals: 0, benchmarkStandard: 120, benchmarkZero: 0,
-    description: "Jump rope for as many reps as possible in 30 seconds",
-  },
-  {
-    slug: "med-ball-toss", name: "Med Ball Toss", day: 1, sortOrder: 5,
-    unitLabel: "m", decimals: 1, benchmarkStandard: 25, benchmarkZero: 0,
-    description: "Throw a medicine ball as far as possible",
-  },
-  {
-    slug: "farmers-walk", name: "Farmer's Walk", day: 1, sortOrder: 6,
-    unitLabel: "m", decimals: 1, benchmarkStandard: 400, benchmarkZero: 0,
-    description: "Farmers walk",
-  },
-  {
-    slug: "stick-drop", name: "Stick Drop Game", day: 2, sortOrder: 1,
-    unitLabel: "sticks", decimals: 0, benchmarkStandard: 18, benchmarkZero: 0,
-    description: "Catch as many sticks as possible",
-  },
-  {
-    slug: "100m-run", name: "100m Run", day: 2, sortOrder: 2,
-    unitLabel: "s", decimals: 2, benchmarkStandard: 11, benchmarkZero: 25,
-    description: "Run 100 meters as fast as possible",
-  },
-  {
-    slug: "cone-drill", name: "Cone Drill", day: 2, sortOrder: 3,
-    unitLabel: "s", decimals: 2, benchmarkStandard: 7, benchmarkZero: 15,
-    description: "Run through the designed course as fast as possible",
-  },
-  {
-    slug: "broad-jump", name: "Broad Jump", day: 2, sortOrder: 4,
-    unitLabel: "m", decimals: 1, benchmarkStandard: 3.5, benchmarkZero: 0,
-    description: "Broad jump for distance",
-  },
-  {
-    slug: "mile-run", name: "Mile Run", day: 2, sortOrder: 5,
-    unitLabel: "s", decimals: 0, benchmarkStandard: 300, benchmarkZero: 720,
-    description: "Run a mile as fast as possible",
-  },
-] as const;
 
 // Kept in sync with src/content/athletes.ts by hand: that file adds photos, taglines
 // and bios for whoever is on the roster, but the roster itself lives here.
@@ -94,6 +37,24 @@ const SAMPLE: Array<[string, string, number]> = [
   ["jump-rope", "Allen", 62], ["jump-rope", "Mohit", 71],
   ["med-ball-toss", "Mena", 24.0], ["med-ball-toss", "Marco", 24.5],
   ["med-ball-toss", "Ahmed", 19.5],
+  ["farmers-walk", "Nick", 320.5], ["farmers-walk", "Allen", 280.0],
+  ["farmers-walk", "David", 350.2], ["farmers-walk", "Marco", 240.8],
+  ["farmers-walk", "Nat", 300.0], ["farmers-walk", "Mohit", 210.5],
+  ["stick-drop", "Ashley", 14], ["stick-drop", "Mena", 11],
+  ["stick-drop", "Pam", 9], ["stick-drop", "Allen", 16],
+  ["stick-drop", "Ahmed", 7], ["stick-drop", "Nick", 13],
+  ["100m-run", "David", 13.8], ["100m-run", "Nick", 14.2],
+  ["100m-run", "Allen", 13.1], ["100m-run", "Marco", 15.6],
+  ["100m-run", "Nat", 14.9], ["100m-run", "Mohit", 16.3],
+  ["cone-drill", "Mena", 9.1], ["cone-drill", "Ashley", 9.8],
+  ["cone-drill", "Allen", 8.4], ["cone-drill", "David", 9.0],
+  ["cone-drill", "Pam", 10.5], ["cone-drill", "Ahmed", 10.9],
+  ["broad-jump", "Nick", 2.6], ["broad-jump", "Marco", 2.1],
+  ["broad-jump", "David", 2.9], ["broad-jump", "Mohit", 1.9],
+  ["broad-jump", "Nat", 2.3], ["broad-jump", "Allen", 3.0],
+  ["mile-run", "David", 390], ["mile-run", "Allen", 420],
+  ["mile-run", "Mena", 480], ["mile-run", "Pam", 600],
+  ["mile-run", "Ahmed", 450], ["mile-run", "Marco", 540],
 ];
 
 async function main() {
