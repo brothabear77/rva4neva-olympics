@@ -129,7 +129,6 @@ export function WalkoutPlayer({
             </>
           )}
         </svg>
-        {paused ? "Play" : "Pause"}
       </button>
     </div>
   );
