@@ -65,32 +65,39 @@ async function main() {
         }
       }
 
-      // Two ties on purpose, to exercise the tiebreaker: first place, and the pair just
-      // below the podium. The lower athlete of each pair has one generated score raised
-      // by exactly the gap, so the totals match and nobody else's place moves.
+      // Two ties on purpose, to exercise the tiebreaker: first place (two athletes) and a
+      // three-way tie just below the podium. Each athlete in a tie other than its top one
+      // has their generated scores raised, spread over as many as it takes, by exactly the
+      // gap, so the totals match and nobody else's place moves.
       const totals = new Map(athletes.map((a) => [a.id, 0]));
       for (const r of existing) totals.set(r.athleteId, (totals.get(r.athleteId) ?? 0) + r.points);
       for (const g of generated) totals.set(g.athleteId, (totals.get(g.athleteId) ?? 0) + g.points);
       const ranked = [...athletes].sort((a, b) => totals.get(b.id)! - totals.get(a.id)!);
-      for (const [upper, lower] of [[0, 1], [3, 4]]) {
+      const MAX_GENERATED = 99;
+      for (const [upper, lower] of [[0, 1], [3, 4], [3, 5]]) {
         const hi = ranked[upper];
         const lo = ranked[lower];
         if (!hi || !lo) continue;
-        const gap = totals.get(hi.id)! - totals.get(lo.id)!;
-        const row = generated.find((g) => g.athleteId === lo.id);
-        if (gap === 0 || !row) continue;
-        const raw = rawForPoints(row.points + gap, row.event);
-        if (raw == null || scoreResult(raw, row.event) !== row.points + gap) {
-          console.log(`Couldn't tie ${lo.name} with ${hi.name} (no exact raw value for ${row.points + gap} pts).`);
-          continue;
+        let gap = totals.get(hi.id)! - totals.get(lo.id)!;
+        for (const row of generated.filter((g) => g.athleteId === lo.id)) {
+          if (gap <= 0) break;
+          // Largest raise this row can take that still scores exactly its new points.
+          for (let add = Math.min(gap, MAX_GENERATED - row.points); add > 0; add -= 1) {
+            const raw = rawForPoints(row.points + add, row.event);
+            if (raw != null && scoreResult(raw, row.event) === row.points + add) {
+              row.rawValue = raw;
+              row.points += add;
+              gap -= add;
+              break;
+            }
+          }
         }
-        row.rawValue = raw;
-        row.points += gap;
+        if (gap > 0) console.log(`Couldn't tie ${lo.name} with ${hi.name}: ${gap} pts short.`);
       }
 
       // The spread can tie other pairs by accident. Nudge any such pair apart (one point
-      // on one generated score of the lower athlete) so the two ties above are the only ones.
-      const tiedOnPurpose = new Set([0, 1, 3, 4].map((i) => ranked[i]?.id));
+      // on one generated score of the lower athlete) so the ties above are the only ones.
+      const tiedOnPurpose = new Set([0, 1, 3, 4, 5].map((i) => ranked[i]?.id));
       const seen = new Map<number, string>();
       for (const a of ranked) {
         const total = totals.get(a.id)!;
