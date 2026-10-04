@@ -25,8 +25,8 @@ export interface ChampionEntry {
  * the whole top section and not just this card.
  *
  * A champion with a walkout song (WalkoutSong.tsx, set from the Athletes page)
- * gets it playing on loop, muted until someone clicks to unmute — see
- * WalkoutPlayer.tsx for why it works that way.
+ * gets a player and a Play button; it doesn't start on its own — see
+ * WalkoutPlayer.tsx.
  */
 export function Champion({ champions }: { champions: ChampionEntry[] }) {
   if (champions.length === 0) return null;

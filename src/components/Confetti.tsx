@@ -29,7 +29,7 @@ const PIECES = Array.from({ length: 28 }, (_, i) => ({
 
 export function Confetti() {
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden motion-reduce:hidden">
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden motion-reduce:hidden z-50">
       {PIECES.map((p) => (
         <span
           key={p.key}

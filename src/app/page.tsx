@@ -9,6 +9,7 @@ import { RankBadge } from "@/components/ui";
 import { ATHLETE_PROFILES } from "@/content/athletes";
 import { QUOTES } from "@/content/quotes";
 import { getEventSummaries, getLeaderboard, getRecentResults, getWalkoutSongs } from "@/lib/queries";
+import { showChampion } from "@/lib/flags";
 import { mergeAthleteProfiles } from "@/lib/profiles";
 import { cleanQuotes } from "@/lib/quotes";
 import { formatMeasurement } from "@/lib/scoring";
@@ -45,7 +46,7 @@ export default async function HomePage() {
   // Tiebreakers mean rank 1 is a single athlete, not a shared place — but Champion
   // still takes a list rather than one entry, so a scoring change that brought
   // ties back wouldn't silently drop a co-champion from the page.
-  const championRows = allScoresIn
+  const championRows = allScoresIn && (await showChampion())
     ? mergeAthleteProfiles(
         entries.map((e) => ({
           name: e.athleteName,

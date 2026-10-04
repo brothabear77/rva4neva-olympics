@@ -10,8 +10,9 @@ export interface ProjectedRank {
 }
 
 /**
- * Where `total` would land among `others`' current totals. Ties share a rank and
- * consume the places below them, as on the leaderboard (see getLeaderboard).
+ * Where `total` would land among `others`' current totals. Points only: a projected
+ * total has no per-event scores, so the leaderboard's tiebreaker (src/lib/ranking.ts)
+ * can't apply — equal totals share a rank here and consume the places below.
  */
 export function projectedRank(total: number, others: readonly number[]): ProjectedRank {
   const ahead = others.filter((t) => t > total).length;

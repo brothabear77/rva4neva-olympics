@@ -1,9 +1,11 @@
 import "server-only";
 import { asc, desc, eq, lt, sql } from "drizzle-orm";
 import { db } from "./db";
-import { athletes, changeLog, events, results, walkoutSongs } from "./schema";
+import { athletes, changeLog, events, walkoutSongs } from "./schema";
+import { results } from "./resultsTable";
 import { isMigrationPending, type WalkoutSong } from "./walkout";
 import { formatMeasurement } from "./scoring";
+import { rankStandings } from "./ranking";
 import type { Event } from "./schema";
 
 /**
@@ -34,6 +36,8 @@ export interface ResultRow {
 
 export interface LeaderboardEntry {
   rank: number;
+  /** Tied on total points with a neighbour, but placed apart by the tiebreaker. */
+  wonOnTiebreak: boolean;
   athleteId: string;
   athleteName: string;
   totalPoints: number;
@@ -72,8 +76,9 @@ function allResults() {
  * Standings for every athlete on the roster, including those yet to score —
  * seeing your name at 0 is part of the fun.
  *
- * Ties share a rank and consume the places below them (1, 2, 2, 4), the way a
- * real scoreboard reads.
+ * Equal totals are split by the tiebreaker (src/lib/ranking.ts: best single event,
+ * then second best, and so on). Only athletes with identical scores in every event
+ * share a rank, and then it consumes the places below (1, 2, 2, 4).
  */
 export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
   const [roster, rows] = await Promise.all([
@@ -86,6 +91,7 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
       a.id,
       {
         rank: 0,
+        wonOnTiebreak: false,
         athleteId: a.id,
         athleteName: a.name,
         totalPoints: 0,
@@ -105,23 +111,7 @@ export async function getLeaderboard(): Promise<LeaderboardEntry[]> {
     if (!entry.best || row.points > entry.best.points) entry.best = row;
   }
 
-  const sorted = [...byAthlete.values()].sort(
-    (a, b) => b.totalPoints - a.totalPoints || a.athleteName.localeCompare(b.athleteName),
-  );
-
-  let previousPoints: number | null = null;
-  let previousRank = 0;
-  sorted.forEach((entry, index) => {
-    if (previousPoints !== null && entry.totalPoints === previousPoints) {
-      entry.rank = previousRank;
-    } else {
-      entry.rank = index + 1;
-      previousRank = entry.rank;
-      previousPoints = entry.totalPoints;
-    }
-  });
-
-  return sorted;
+  return rankStandings([...byAthlete.values()].sort((a, b) => a.athleteName.localeCompare(b.athleteName)));
 }
 
 export interface EventSummary extends Event {

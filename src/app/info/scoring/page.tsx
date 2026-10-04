@@ -270,9 +270,8 @@ export default async function ScoringPage() {
           </h2>
           <p className="text-sm leading-relaxed text-paper">
             Should two or more athletes finish with the same total points, the tiebreaker will be
-            a sudden-death event determined by the rest of the group. It could be one of the events
-            already completed, or a new event altogether. Tiebreaker events will be held for ties at
-            any position on the leaderboard, whether for first place or last.
+            determined by whoever has the most points in a single event, cascading to the second highest 
+            event, and so on until a winner is determined.
           </p>
         </div>
       </section>

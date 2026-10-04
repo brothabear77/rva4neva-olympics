@@ -78,6 +78,14 @@ export function LeaderboardTable({
                   <span className="text-muted/60">/{events.length}</span>
                 </td>
                 <td className="px-4 py-3 text-right">
+                  {entry.wonOnTiebreak ? (
+                    <abbr
+                      title="Level on points with a neighbour; placed by best single-event score"
+                      className="mr-1.5 cursor-help text-[10px] font-semibold uppercase tracking-wide text-muted no-underline"
+                    >
+                      TB
+                    </abbr>
+                  ) : null}
                   <span
                     className={[
                       "tnum font-display text-xl font-bold",

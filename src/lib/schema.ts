@@ -100,29 +100,35 @@ export const importBatches = appSchema.table("import_batches", {
   uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * The columns of app.results, as a function so scripts/finished.ts's local-only
+ * copy (src/lib/resultsTable.ts) is declared with exactly the same ones.
+ */
+export const resultColumns = () => ({
+  id: uuid("id").primaryKey().defaultRandom(),
+  eventId: uuid("event_id")
+    .notNull()
+    .references(() => events.id, { onDelete: "cascade" }),
+  athleteId: uuid("athlete_id")
+    .notNull()
+    .references(() => athletes.id, { onDelete: "cascade" }),
+  /** The measurement as recorded: seconds, feet, cups, whatever the event uses. */
+  rawValue: numeric("raw_value", { precision: 12, scale: 4, mode: "number" }).notNull(),
+  /** Derived from rawValue and the event's benchmarks. Stored so the
+   *  leaderboard is one cheap SUM, recomputed whenever benchmarks change. */
+  points: integer("points").notNull(),
+  notes: text("notes").notNull().default(""),
+  /** Free-text "who is submitting this" — there are no accounts by design. */
+  submittedBy: text("submitted_by").notNull().default(""),
+  source: resultSource("source").notNull().default("ui"),
+  batchId: uuid("batch_id").references(() => importBatches.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const results = appSchema.table(
   "results",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    eventId: uuid("event_id")
-      .notNull()
-      .references(() => events.id, { onDelete: "cascade" }),
-    athleteId: uuid("athlete_id")
-      .notNull()
-      .references(() => athletes.id, { onDelete: "cascade" }),
-    /** The measurement as recorded: seconds, feet, cups, whatever the event uses. */
-    rawValue: numeric("raw_value", { precision: 12, scale: 4, mode: "number" }).notNull(),
-    /** Derived from rawValue and the event's benchmarks. Stored so the
-     *  leaderboard is one cheap SUM, recomputed whenever benchmarks change. */
-    points: integer("points").notNull(),
-    notes: text("notes").notNull().default(""),
-    /** Free-text "who is submitting this" — there are no accounts by design. */
-    submittedBy: text("submitted_by").notNull().default(""),
-    source: resultSource("source").notNull().default("ui"),
-    batchId: uuid("batch_id").references(() => importBatches.id, { onDelete: "set null" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  },
+  resultColumns(),
   (t) => [
     // One score per person per event. Re-submitting updates, and the update
     // shows up in the changelog like any other edit.

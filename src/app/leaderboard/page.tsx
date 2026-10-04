@@ -2,9 +2,11 @@ import Link from "next/link";
 import { LeaderboardTable } from "@/components/LeaderboardTable";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import { Superlatives } from "@/components/Superlatives";
+import { Tiebreakers } from "@/components/Tiebreakers";
 import { EmptyState, PageHeader, Stat } from "@/components/ui";
 import { SUPERLATIVE_CATEGORIES } from "@/content/superlatives";
 import { getEventsForForm, getLeaderboard } from "@/lib/queries";
+import { findTies } from "@/lib/ranking";
 import { computeSuperlatives } from "@/lib/superlatives";
 
 // Standings change while people are watching; never serve a cached copy.
@@ -17,8 +19,11 @@ export default async function LeaderboardPage() {
 
   const scored = entries.filter((e) => e.eventsCompleted > 0);
   const leader = scored[0];
-  const runnerUp = scored.find((e) => e.rank > 1);
+  // The tiebreaker (src/lib/ranking.ts) puts a single athlete first, so the runner-up
+  // is simply the next one down; a zero margin means the leader won on the tiebreak.
+  const runnerUp = scored[1];
   const margin = leader && runnerUp ? leader.totalPoints - runnerUp.totalPoints : 0;
+  const wonOnTiebreak = leader !== undefined && runnerUp !== undefined && margin === 0 && leader.rank < runnerUp.rank;
   const totalResults = entries.reduce((sum, e) => sum + e.eventsCompleted, 0);
 
   const superlatives = computeSuperlatives(
@@ -58,7 +63,7 @@ export default async function LeaderboardPage() {
             />
             <Stat
               label="Margin"
-              value={margin > 0 ? `+${margin.toLocaleString()}` : "Tied"}
+              value={margin > 0 ? `+${margin.toLocaleString()}` : wonOnTiebreak ? "Tiebreak" : "Tied"}
               hint={runnerUp ? `over ${runnerUp.athleteName}` : "at the top"}
             />
             <Stat
@@ -69,6 +74,8 @@ export default async function LeaderboardPage() {
           </div>
 
           <LeaderboardTable entries={entries} events={events} />
+
+          <Tiebreakers ties={findTies(entries)} />
 
           <Superlatives results={superlatives} />
 

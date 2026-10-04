@@ -20,6 +20,17 @@ export const SUBMISSION_LOCK_FLAG = "submission-lock";
 export const SUBMISSIONS_LOCKED_MESSAGE = "The scoreboard is currently locked.";
 
 /**
+ * Gates the champion on the home page, on top of the scores being complete: both
+ * have to hold. Falls back to on, so an outage at LaunchDarkly doesn't hide a
+ * champion that is otherwise due.
+ */
+export const SHOW_CHAMPION_FLAG = "show-champion";
+
+export function showChampion(): Promise<boolean> {
+  return boolFlag(SHOW_CHAMPION_FLAG, true);
+}
+
+/**
  * Whether the scores are currently frozen.
  *
  * This is what stops a change, not the page: the grid, the CSV import and the
