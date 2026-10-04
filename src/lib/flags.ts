@@ -36,7 +36,7 @@ export function showChampion(): Promise<boolean> {
  * This is what stops a change, not the page: the grid, the CSV import and the
  * remove/undo/delete buttons are disabled while it is true, but anyone can post to a
  * server action directly, so each action asks this itself. Covered: submitGrid and
- * commitImport (adding scores), deleteScores, deleteResult and deleteAthlete (removing
+ * commitImport (adding scores), deleteScores and deleteAthlete (removing
  * them; deleting an athlete removes their scores too) and restoreChange (undoing a
  * change from the history).
  *

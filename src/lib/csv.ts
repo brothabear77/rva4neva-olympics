@@ -1,4 +1,5 @@
 import Papa from "papaparse";
+import { EVENTS } from "./eventCatalog";
 import { scoreResult, type ScoringConfig } from "./scoring";
 
 /**
@@ -10,10 +11,19 @@ import { scoreResult, type ScoringConfig } from "./scoring";
  * record the wrong number.
  */
 
-export const CSV_TEMPLATE = `event_slug,athlete_name,raw_value,notes
-40-yard-dash,Nick,5.42,
-cornhole-shootout,Dana,11,windy
-`;
+/**
+ * One example row per real event, so the template lists every valid slug. Each value is
+ * the midpoint of the event's scale (about 50 points), written to the event's own
+ * precision, so it is a plausible mark in the right unit.
+ */
+export const CSV_TEMPLATE = [
+  "event_slug,athlete_name,raw_value,notes",
+  ...EVENTS.map((event) => {
+    const midpoint = (event.benchmarkStandard + event.benchmarkZero) / 2;
+    return `${event.slug},Athlete Name,${midpoint.toFixed(event.decimals)},`;
+  }),
+  "",
+].join("\n");
 
 /** Accepted spellings for each column, lowercased with non-letters stripped. */
 const HEADER_ALIASES: Record<string, keyof CsvRow> = {
