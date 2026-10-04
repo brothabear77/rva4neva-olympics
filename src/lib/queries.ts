@@ -1,7 +1,8 @@
 import "server-only";
 import { asc, desc, eq, lt, sql } from "drizzle-orm";
 import { db } from "./db";
-import { athletes, changeLog, events, results, walkoutSongs } from "./schema";
+import { athletes, changeLog, events, walkoutSongs } from "./schema";
+import { results } from "./resultsTable";
 import { isMigrationPending, type WalkoutSong } from "./walkout";
 import { formatMeasurement } from "./scoring";
 import type { Event } from "./schema";

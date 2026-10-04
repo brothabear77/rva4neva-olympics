@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:clean": "rm -rf .next/dev && next dev",
+    "dev:finished": "RESULTS_TABLE=finished next dev",
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
@@ -16,7 +17,7 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:seed:results": "tsx scripts/seed.ts --with-results",
-    "db:fixtures": "tsx scripts/fixtures.ts",
+    "db:finished": "tsx scripts/finished.ts",
     "resize-photo": "tsx scripts/resize-photo.ts",
     "db:studio": "drizzle-kit studio",
     "db:psql": "docker compose exec db psql -U olympics -d olympics",

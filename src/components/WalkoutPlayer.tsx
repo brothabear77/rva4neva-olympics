@@ -5,7 +5,8 @@ import { embedHeight, type WalkoutSong } from "@/lib/walkout";
 const zIndex = -10
 
 /**
- * The champion's walkout song, autoplaying on loop. Spotify's plain
+ * The champion's walkout song, played on demand and looping once started. It does
+ * not autoplay: the visitor presses Play. Spotify's plain
  * `<iframe src=...>` embed (WalkoutSong.tsx's own player) can't loop itself, so
  * this talks to Spotify's IFrame Controller API instead
  * (developer.spotify.com/documentation/embeds/references/iframe-api), which hands
@@ -17,14 +18,11 @@ const zIndex = -10
  * playback stops with position back at 0 (a manual pause leaves position
  * wherever it was), so that transition is what this restarts on.
  *
- * What it can't do: mute itself. The controller's real method list — verified
- * the same way — is play/pause/resume/seek/restart/togglePlay/destroy and
- * nothing volume-related; Spotify doesn't expose one. So whether autoplay is
- * allowed is up to the browser's policy for Spotify's domain (built up from
- * real visits, not something this page can set). When it's blocked the song
- * just sits paused, and the Play button below is the way out: a click is a
- * real user gesture, so starting playback from its handler is what gets sound.
- * (Safari is stricter about gestures crossing into an iframe; there the
+ * Autoplay was tried and dropped. The controller has no volume or mute method
+ * (play/pause/resume/seek/restart/togglePlay/destroy only — verified against the
+ * shipped bundle), so autoplay depended on the browser's per-site policy and
+ * often just sat paused. The Play button below starts it: a click is a real user
+ * gesture. (Safari is stricter about gestures crossing into an iframe; there the
  * visitor may still need Spotify's own ▶ inside the player.)
  *
  * The player is laid over the bottom of `photo`; `children` (the champion's name
@@ -69,10 +67,7 @@ export function WalkoutPlayer({
           controller = created;
           controllerRef.current = created;
 
-          created.addListener("ready", () => {
-            setReady(true);
-            created.resume();
-          });
+          created.addListener("ready", () => setReady(true));
 
           created.addListener("playback_update", ({ data }) => {
             // A natural end: it was playing, it progressed, and now it's stopped back
