@@ -30,6 +30,7 @@ const SAMPLE: Array<[string, string, number]> = [
   ["vertical-jump", "Nick", 19.5], ["vertical-jump", "Mena", 15.0],
   ["vertical-jump", "Allen", 21.0], ["vertical-jump", "Ashley", 14.5],
   ["vertical-jump", "David", 17.0], ["vertical-jump", "Mohit", 12.5],
+  ["vertical-jump", "Nat", 18],
   ["shuttle-run", "Nick", 5.1], ["shuttle-run", "Mena", 5.6],
   ["shuttle-run", "Allen", 4.9], ["shuttle-run", "David", 5.3],
   ["shuttle-run", "Ahmed", 5.8],

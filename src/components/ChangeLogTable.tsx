@@ -85,8 +85,14 @@ export function ChangeLogTable({ entries, locked = false }: { entries: ChangeLog
                       disabled={pending || locked}
                       className="text-xs text-muted underline-offset-4 hover:text-accent hover:underline disabled:opacity-50"
                     >
-                      {entry.operation === "INSERT" ? "Restore " : "Undo — back to "}
-                      <span className="tnum">{entry.restoreTo}</span>
+                      {entry.operation === "INSERT" && (entry.tableName === "results" || entry.tableName === "athletes") ? (
+                        entry.tableName === "results" ? "Undo — remove this score" : "Undo — remove this athlete"
+                      ) : (
+                        <>
+                          {entry.operation === "INSERT" || entry.operation === "DELETE" ? "Restore " : "Undo — back to "}
+                          <span className="tnum">{entry.restoreTo}</span>
+                        </>
+                      )}
                     </button>
                   </form>
                 ) : null}

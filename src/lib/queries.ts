@@ -245,6 +245,9 @@ export async function getChangeLog(limit = 100, before?: number): Promise<Change
       .from(events),
     db.select({ id: athletes.id, name: athletes.name }).from(athletes),
   ]);
+  const liveResultIds = new Set(
+    (await db.select({ id: results.id }).from(results)).map((r) => r.id),
+  );
   const eventsById = new Map(eventList.map((e) => [e.id, e]));
   const eventNames = new Map(eventList.map((e) => [e.id, e.name]));
   const athleteNames = new Map(athleteList.map((a) => [a.id, a.name]));
@@ -283,7 +286,9 @@ export async function getChangeLog(limit = 100, before?: number): Promise<Change
     if (row.tableName === "results" && restoreSource) {
       const event = eventsById.get(String(restoreSource.event_id));
       const raw = Number(restoreSource.raw_value);
-      if (event && Number.isFinite(raw)) {
+      // Undoing an added score removes it, so there is only something to offer while it exists.
+      const stillThere = row.operation !== "INSERT" || liveResultIds.has(row.recordId ?? "");
+      if (event && Number.isFinite(raw) && stillThere) {
         restoreTo = `${formatMeasurement(raw, event.decimals)}${event.unitLabel ? ` ${event.unitLabel}` : ""}`;
       }
     }
@@ -295,7 +300,9 @@ export async function getChangeLog(limit = 100, before?: number): Promise<Change
       const useful =
         row.operation === "DELETE"
           ? now === undefined // still deleted; bringing them back also brings back their scores
-          : now !== undefined && now !== wanted; // renamed since; put the name back
+          : row.operation === "INSERT"
+            ? now !== undefined // undoing an add removes them, so only while they are still there
+            : now !== undefined && now !== wanted; // renamed since; put the name back
       if (useful) restoreTo = wanted;
     }
 

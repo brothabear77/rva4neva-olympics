@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BenchmarkForm } from "@/components/BenchmarkForm";
-import { DeleteResultButton } from "@/components/DeleteResultButton";
-import { LockedBanner } from "@/components/LockedBanner";
+import { DotPlot } from "@/components/ScoringDotPlot";
 import { DayTag, EmptyState, PageHeader, RankBadge, Stat } from "@/components/ui";
-import { submissionsLocked } from "@/lib/flags";
+import { scoreLadder } from "@/lib/profiles";
 import { getEventBySlug, getEventResults } from "@/lib/queries";
-import { describeScale, formatMeasurement } from "@/lib/scoring";
+import { formatMeasurement, isScorable } from "@/lib/scoring";
 
 export const dynamic = "force-dynamic";
+
+/** Points marks plotted on the scoring scale: the 100-point and 0-point benchmarks and three between. */
+const SCALE_TARGETS = [100, 75, 50, 25, 0] as const;
 
 export async function generateMetadata(props: PageProps<"/events/[slug]">) {
   const { slug } = await props.params;
@@ -21,7 +23,7 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
   const event = await getEventBySlug(slug);
   if (!event) notFound();
 
-  const [rows, locked] = await Promise.all([getEventResults(event.id), submissionsLocked()]);
+  const rows = await getEventResults(event.id);
   const best = rows[0] ?? null;
 
   return (
@@ -41,8 +43,6 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
           </>
         }
       />
-
-      {locked ? <LockedBanner /> : null}
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <DayTag day={event.day} order={event.sortOrder} dayText={true}/>
@@ -71,12 +71,20 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
 
       <div className="card mb-6 p-4">
         <p className="eyebrow">Scoring scale</p>
-        <p className="tnum mt-1 text-sm text-paper">
-          {describeScale(event, event.decimals, event.unitLabel)}
-        </p>
+        {isScorable(event) ? (
+          <DotPlot
+            eventName={event.name}
+            stops={scoreLadder(event, event.decimals, event.unitLabel, SCALE_TARGETS).map((step, index) => ({
+              ...step,
+              target: SCALE_TARGETS[index],
+            }))}
+          />
+        ) : (
+          <p className="mt-1 text-sm text-paper">Not yet scorable</p>
+        )}
         <Link
           href="/info/scoring"
-          className="mt-2 inline-block text-xs text-muted underline-offset-4 hover:text-accent hover:underline"
+          className="mt-3 inline-block text-xs text-muted underline-offset-4 hover:text-accent hover:underline"
         >
           How scoring works &rarr;
         </Link>
@@ -98,10 +106,7 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
                 <th scope="col" className="eyebrow px-4 py-3">#</th>
                 <th scope="col" className="eyebrow px-2 py-3">Athlete</th>
                 <th scope="col" className="eyebrow px-2 py-3 text-right">Mark</th>
-                <th scope="col" className="eyebrow px-2 py-3 text-right">Points</th>
-                <th scope="col" className="eyebrow px-4 py-3 text-right">
-                  <span className="sr-only">Actions</span>
-                </th>
+                <th scope="col" className="eyebrow px-4 py-3 text-right">Points</th>
               </tr>
             </thead>
             <tbody>
@@ -129,7 +134,7 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
                       <span className="text-muted"> {event.unitLabel}</span>
                     ) : null}
                   </td>
-                  <td className="tnum px-2 py-3 text-right">
+                  <td className="tnum px-4 py-3 text-right">
                     <span
                       className={[
                         "font-display text-lg font-bold",
@@ -138,9 +143,6 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
                     >
                       {row.points}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <DeleteResultButton resultId={row.id} athleteName={row.athleteName} locked={locked} />
                   </td>
                 </tr>
               ))}

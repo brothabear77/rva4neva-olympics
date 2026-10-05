@@ -428,31 +428,6 @@ export async function clearWalkoutSong(input: { athleteId: string }): Promise<Ac
 }
 
 // ---------------------------------------------------------------------------
-// Deleting a result
-// ---------------------------------------------------------------------------
-
-export async function deleteResult(formData: FormData): Promise<ActionResult> {
-  if (await submissionsLocked()) return fail(SUBMISSIONS_LOCKED_MESSAGE);
-
-  const id = String(formData.get("resultId") ?? "");
-  const actor = String(formData.get("submittedBy") ?? "").trim() || "anonymous";
-  if (!id) return fail("Missing result id.");
-
-  try {
-    const removed = await withActor({ actor }, async (tx) => {
-      const [row] = await tx.delete(results).where(eq(results.id, id)).returning();
-      if (!row) throw new Error("That result was already removed.");
-      return row;
-    });
-
-    revalidateScoreboard();
-    return ok(`Removed a ${removed.points}-point result. It can be restored from the change history.`);
-  } catch (error) {
-    return fail(describeError(error));
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Editing an event's scoring scale
 // ---------------------------------------------------------------------------
 
@@ -673,14 +648,20 @@ type AuditEntry = typeof changeLog.$inferSelect;
 /** Put a result back under its original id, or overwrite it if one is there now. */
 async function restoreResult(tx: Tx, entry: AuditEntry): Promise<string> {
   // Restoring undoes: go back to the state the row held *before* this
-  // change. For an entry that created the row there is no before, so the
-  // created state is what gets put back — which is what makes restoring a
-  // deleted result work.
+  // change. A deletion has no "after", so its recorded state is what gets put
+  // back. An insertion has no "before": undoing it removes the row (below).
   const target = (entry.oldRow ?? entry.newRow) as Record<string, unknown> | null;
   if (!target) throw new Error("That entry has no recorded state to restore.");
 
   const recordId = entry.recordId ?? String(target.id ?? "");
   if (!recordId) throw new Error("That entry has no record to restore.");
+
+  // Undoing an entry that added the result means taking it away again.
+  if (entry.operation === "INSERT") {
+    const [removed] = await tx.delete(results).where(eq(results.id, recordId)).returning();
+    if (!removed) throw new Error("That result was already removed.");
+    return `Removed the ${removed.points}-point result that change added.`;
+  }
 
   const [event] = await tx
     .select()
@@ -743,7 +724,8 @@ async function restoreResult(tx: Tx, entry: AuditEntry): Promise<string> {
 
 /**
  * Put an athlete back: rename them to the name an entry recorded, or, if they
- * have been deleted, bring them back under their original id.
+ * have been deleted, bring them back under their original id. An entry that added
+ * the athlete is undone by removing them.
  *
  * Deleting an athlete deletes their scores in the same transaction, so undoing
  * that deletion also brings back every score removed with them. The scores are
@@ -755,6 +737,18 @@ async function restoreAthlete(tx: Tx, entry: AuditEntry): Promise<string> {
   const athleteId = entry.recordId ?? String(target?.id ?? "");
   const name = String(target?.name ?? "").trim();
   if (!athleteId || !name) throw new Error("That entry has no athlete to restore.");
+
+  // Undoing an entry that added the athlete means taking them off the roster again,
+  // which removes their scores with them, exactly as deleting them would.
+  if (entry.operation === "INSERT") {
+    const [{ scores }] = await tx
+      .select({ scores: sql<number>`count(*)::int` })
+      .from(results)
+      .where(eq(results.athleteId, athleteId));
+    const [removed] = await tx.delete(athletes).where(eq(athletes.id, athleteId)).returning();
+    if (!removed) throw new Error("That athlete was already removed.");
+    return `Removed ${removed.name}${scores ? ` and their ${scores} score${scores === 1 ? "" : "s"}` : ""}.`;
+  }
 
   // The name may have been taken by someone else since.
   const [clash] = await tx

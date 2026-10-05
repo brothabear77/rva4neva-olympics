@@ -7,6 +7,16 @@ import { formatMeasurement } from "@/lib/scoring";
 import type { LeaderboardEntry } from "@/lib/queries";
 import type { Event } from "@/lib/schema";
 
+/** The event where the athlete scored the most points (first one wins a tie). */
+function bestEvent(entry: LeaderboardEntry, events: Event[]) {
+  let best: { event: Event; result: LeaderboardEntry["byEventId"][string] } | null = null;
+  for (const event of events) {
+    const result = entry.byEventId[event.id];
+    if (result && (!best || result.points > best.result.points)) best = { event, result };
+  }
+  return best;
+}
+
 /**
  * Standings, with each athlete's per-event breakdown available on tap.
  *
@@ -22,7 +32,6 @@ export function LeaderboardTable({
   events: Event[];
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
-  const topScore = entries[0]?.totalPoints ?? 0;
 
   return (
     <div className="card overflow-x-auto">
@@ -41,7 +50,7 @@ export function LeaderboardTable({
         <tbody>
           {entries.map((entry) => {
             const isOpen = expanded === entry.athleteId;
-            const share = topScore > 0 ? (entry.totalPoints / topScore) * 100 : 0;
+            const best = bestEvent(entry, events);
 
             return [
               <tr
@@ -64,13 +73,18 @@ export function LeaderboardTable({
                     <span className="mt-1 block text-xs text-muted sm:hidden">
                       {entry.eventsCompleted} of {events.length} events
                     </span>
-                    {/* Relative bar: how close the field is to the leader. */}
-                    <span className="mt-1.5 block h-1 w-full max-w-48 overflow-hidden rounded-full bg-surface/60">
-                      <span
-                        className="block h-full rounded-full bg-accent transition-all"
-                        style={{ width: `${Math.max(share, entry.totalPoints > 0 ? 3 : 0)}%` }}
-                      />
-                    </span>
+                    {best ? (
+                      <span className="mt-1 block text-xs text-muted">
+                        Best: {best.event.name}
+                        <span className="mx-1.5">&middot;</span>
+                        <span className="tnum whitespace-nowrap">
+                          {formatMeasurement(best.result.rawValue, best.event.decimals)}
+                          {best.event.unitLabel ? ` ${best.event.unitLabel}` : ""}
+                          <span className="mx-1.5">|</span>
+                          {best.result.points} pts
+                        </span>
+                      </span>
+                    ) : null}
                   </button>
                 </td>
                 <td className="tnum hidden px-2 py-3 text-right text-sm text-muted sm:table-cell">
