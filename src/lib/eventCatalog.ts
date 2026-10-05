@@ -20,7 +20,7 @@ export const EVENTS = [
   },
   {
     slug: "vertical-jump", name: "Vertical Jump", day: 1, sortOrder: 2,
-    unitLabel: "in", decimals: 1, benchmarkStandard: 36, benchmarkZero: 0,
+    unitLabel: "in", decimals: 0, benchmarkStandard: 36, benchmarkZero: 0,
     description: "Vertical jump for height",
   },
   {
@@ -35,12 +35,12 @@ export const EVENTS = [
   },
   {
     slug: "med-ball-toss", name: "Med Ball Toss", day: 1, sortOrder: 5,
-    unitLabel: "m", decimals: 1, benchmarkStandard: 25, benchmarkZero: 0,
+    unitLabel: "m", decimals: 2, benchmarkStandard: 25, benchmarkZero: 0,
     description: "Throw a medicine ball as far as possible",
   },
   {
     slug: "farmers-walk", name: "Farmer's Walk", day: 1, sortOrder: 6,
-    unitLabel: "m", decimals: 1, benchmarkStandard: 400, benchmarkZero: 0,
+    unitLabel: "m", decimals: 2, benchmarkStandard: 400, benchmarkZero: 0,
     description: "Farmers walk",
   },
   {
@@ -60,12 +60,12 @@ export const EVENTS = [
   },
   {
     slug: "broad-jump", name: "Broad Jump", day: 2, sortOrder: 4,
-    unitLabel: "m", decimals: 1, benchmarkStandard: 3.5, benchmarkZero: 0,
+    unitLabel: "m", decimals: 2, benchmarkStandard: 3.5, benchmarkZero: 0,
     description: "Broad jump for distance",
   },
   {
     slug: "mile-run", name: "Mile Run", day: 2, sortOrder: 5,
-    unitLabel: "s", decimals: 0, benchmarkStandard: 300, benchmarkZero: 720,
+    unitLabel: "s", decimals: 2, benchmarkStandard: 300, benchmarkZero: 720,
     description: "Run a mile as fast as possible",
   },
 ] as const;
