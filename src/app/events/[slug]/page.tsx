@@ -28,6 +28,13 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
 
   return (
     <>
+      <Link
+        href="/events"
+        className="mb-4 inline-block text-xs text-muted underline-offset-4 hover:text-accent hover:underline"
+      >
+        &larr; All events
+      </Link>
+
       <PageHeader
         eyebrow={`Day ${event.day} event`}
         title={event.name}
