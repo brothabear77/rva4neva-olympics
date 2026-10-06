@@ -8,7 +8,8 @@ import { LiveRefresh } from "@/components/LiveRefresh";
 import { RankBadge } from "@/components/ui";
 import { ATHLETE_PROFILES } from "@/content/athletes";
 import { QUOTES } from "@/content/quotes";
-import { getEventSummaries, getLeaderboard, getRecentResults, getWalkoutSongs } from "@/lib/queries";
+import { getAthleteProfiles, getEventSummaries, getLeaderboard, getRecentResults, getWalkoutSongs } from "@/lib/queries";
+import { canScore, getSession } from "@/lib/auth";
 import { showChampion } from "@/lib/flags";
 import { mergeAthleteProfiles } from "@/lib/profiles";
 import { cleanQuotes } from "@/lib/quotes";
@@ -31,11 +32,13 @@ export default async function HomePage() {
     );
   }
 
-  const [entries, events, recent] = await Promise.all([
+  const [entries, events, recent, session] = await Promise.all([
     getLeaderboard(),
     getEventSummaries(),
     getRecentResults(8),
+    getSession(),
   ]);
+  const scorer = canScore(session);
 
   const podium = entries.filter((e) => e.eventsCompleted > 0).slice(0, 3);
   const scored = events.filter((e) => e.resultCount > 0).length;
@@ -49,12 +52,14 @@ export default async function HomePage() {
   const championRows = allScoresIn && (await showChampion())
     ? mergeAthleteProfiles(
         entries.map((e) => ({
+          id: e.athleteId,
           name: e.athleteName,
           athleteId: e.athleteId,
           totalPoints: e.totalPoints,
           rank: e.rank,
         })),
         ATHLETE_PROFILES,
+        await getAthleteProfiles(),
       ).rows.filter((r) => r.athlete.rank === 1)
     : [];
 
@@ -98,9 +103,11 @@ export default async function HomePage() {
               <Link href="/leaderboard" className="btn">
                 See the standings
               </Link>
-              <Link href="/submit" className="btn btn-ghost">
-                Submit a result
-              </Link>
+              {scorer ? (
+                <Link href="/submit" className="btn btn-ghost">
+                  Submit a result
+                </Link>
+              ) : null}
             </div>
           </div>
 
@@ -134,11 +141,18 @@ export default async function HomePage() {
 
         {podium.length === 0 ? (
           <p className="card p-6 text-sm text-muted">
-            No results yet.{" "}
-            <Link href="/submit" className="text-accent underline underline-offset-4">
-              Post the first score
-            </Link>{" "}
-            and the podium fills in.
+            No results yet.
+            {scorer ? (
+              <>
+                {" "}
+                <Link href="/submit" className="text-accent underline underline-offset-4">
+                  Post the first score
+                </Link>{" "}
+                and the podium fills in.
+              </>
+            ) : (
+              " The podium fills in as scores come in."
+            )}
           </p>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-3">

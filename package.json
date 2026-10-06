@@ -18,6 +18,7 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:seed:results": "tsx scripts/seed.ts --with-results",
     "db:finished": "tsx scripts/finished.ts",
+    "auth:staff": "tsx scripts/create-staff.ts",
     "resize-photo": "tsx scripts/resize-photo.ts",
     "db:studio": "drizzle-kit studio",
     "db:psql": "docker compose exec db psql -U olympics -d olympics",

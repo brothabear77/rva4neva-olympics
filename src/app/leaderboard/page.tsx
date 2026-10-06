@@ -8,6 +8,7 @@ import { SUPERLATIVE_CATEGORIES } from "@/content/superlatives";
 import { getEventsForForm, getLeaderboard } from "@/lib/queries";
 import { findTies } from "@/lib/ranking";
 import { computeSuperlatives } from "@/lib/superlatives";
+import { canScore, getSession } from "@/lib/auth";
 
 // Standings change while people are watching; never serve a cached copy.
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Live Leaderboard" };
 
 export default async function LeaderboardPage() {
-  const [entries, events] = await Promise.all([getLeaderboard(), getEventsForForm()]);
+  const [entries, events, session] = await Promise.all([getLeaderboard(), getEventsForForm(), getSession()]);
 
   const scored = entries.filter((e) => e.eventsCompleted > 0);
   const leader = scored[0];
@@ -46,11 +47,16 @@ export default async function LeaderboardPage() {
 
       {scored.length === 0 ? (
         <EmptyState title="No scores yet">
-          The board fills in as results come in. Head to{" "}
-          <a href="/submit" className="text-accent underline underline-offset-4">
-            Submit Results
-          </a>{" "}
-          to post the first one.
+          The board fills in as results come in.
+          {canScore(session) ? (
+            <>
+              {" "}Head to{" "}
+              <a href="/submit" className="text-accent underline underline-offset-4">
+                Submit Results
+              </a>{" "}
+              to post the first one.
+            </>
+          ) : null}
         </EmptyState>
       ) : (
         <>

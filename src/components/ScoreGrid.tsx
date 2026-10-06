@@ -14,7 +14,6 @@ import {
 } from "@/lib/grid";
 import { scoreResult } from "@/lib/scoring";
 import { Banner } from "./ui";
-import { useScorekeeperName } from "./useScorekeeperName";
 import type { Athlete, Event } from "@/lib/schema";
 
 export interface StoredResult {
@@ -78,7 +77,6 @@ export function ScoreGrid({
   /** The scoreboard is locked (see src/lib/flags.ts): both add and delete mode go read-only and saving is disabled. */
   locked?: boolean;
 }) {
-  const [scorekeeper, setScorekeeper] = useScorekeeperName();
   const [mode, setMode] = useState<Mode>("add");
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
@@ -185,12 +183,12 @@ export function ScoreGrid({
       setMessage(null);
       if (deleting) {
         const cells = deleteDiff.cells;
-        const result = await deleteScores({ submittedBy: scorekeeper, cells });
+        const result = await deleteScores({ cells });
         setMessage({ tone: result.ok ? "ok" : "error", text: result.message });
         if (result.ok) setSaved({ kind: "delete", cells });
       } else {
         const changes = addDiff.changes;
-        const result = await submitGrid({ submittedBy: scorekeeper, changes });
+        const result = await submitGrid({ changes });
         setMessage({ tone: result.ok ? "ok" : "error", text: result.message });
         if (result.ok) setSaved({ kind: "add", changes });
       }
@@ -413,20 +411,6 @@ export function ScoreGrid({
             ))}
           </tbody>
         </table>
-      </div>
-
-      <div className="max-w-md">
-        <label className="label" htmlFor="gridBy">
-          Your name
-        </label>
-        <input
-          id="gridBy"
-          value={scorekeeper}
-          onChange={(e) => setScorekeeper(e.target.value)}
-          maxLength={80}
-          placeholder="Recorded in the change history"
-          className="field"
-        />
       </div>
 
       {message ? <Banner tone={message.tone}>{message.text}</Banner> : null}

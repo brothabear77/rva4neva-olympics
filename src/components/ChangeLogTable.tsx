@@ -3,7 +3,6 @@
 import { useActionState } from "react";
 import { restoreChange } from "@/lib/actions";
 import { Banner } from "./ui";
-import { useScorekeeperName } from "./useScorekeeperName";
 import { formatEventDateTime } from "@/lib/time";
 import type { ActionResult } from "@/lib/actions";
 import type { ChangeLogRow } from "@/lib/queries";
@@ -41,8 +40,16 @@ const OPERATION_LABEL: Record<string, string> = {
   RESTORE: "Restored",
 };
 
-export function ChangeLogTable({ entries, locked = false }: { entries: ChangeLogRow[]; locked?: boolean }) {
-  const [name] = useScorekeeperName();
+export function ChangeLogTable({
+  entries,
+  locked = false,
+  canRestore = false,
+}: {
+  entries: ChangeLogRow[];
+  locked?: boolean;
+  /** Signed in as a scorekeeper or the admin. The action checks again. */
+  canRestore?: boolean;
+}) {
   const [state, formAction, pending] = useActionState(
     async (_prev: ActionResult | null, formData: FormData) => restoreChange(formData),
     null,
@@ -74,10 +81,9 @@ export function ChangeLogTable({ entries, locked = false }: { entries: ChangeLog
 
               <div className="flex shrink-0 items-center gap-3">
                 <span className="tnum text-xs text-muted">#{entry.id}</span>
-                {entry.restoreTo ? (
+                {canRestore && entry.restoreTo ? (
                   <form action={formAction}>
                     <input type="hidden" name="entryId" value={entry.id} />
-                    <input type="hidden" name="submittedBy" value={name} />
                     {/* The value is named on the button: on an entry that reads
                         "26.5 → 28", "Restore" alone does not say which you get. */}
                     <button

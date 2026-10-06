@@ -226,6 +226,31 @@ describe("mergeAthleteProfiles", () => {
     expect(unmatched).toEqual([]);
     expect(rows.every((r) => r.profile === null)).toBe(true);
   });
+
+  describe("with profiles in the database", () => {
+    const withIds = [
+      { id: "a", name: "Nick" },
+      { id: "b", name: "Dana" },
+    ];
+    const stored = new Map([["a", { tagline: "From the DB", bio: "", photo: "/athletes/nick.jpg" }]]);
+
+    it("uses the database profile over the file's entry", () => {
+      const { rows } = mergeAthleteProfiles(withIds, [{ name: "Nick", tagline: "From the file", bio: "old" }], stored);
+      expect(rows[0].profile).toEqual({ name: "Nick", tagline: "From the DB", bio: undefined, photo: "/athletes/nick.jpg" });
+    });
+
+    it("reports the file entry it replaced, so it can be deleted", () => {
+      const { superseded, unmatched } = mergeAthleteProfiles(withIds, [{ name: "Nick", bio: "old" }], stored);
+      expect(superseded.map((p) => p.name)).toEqual(["Nick"]);
+      expect(unmatched).toEqual([]);
+    });
+
+    it("still uses the file for athletes with nothing in the database", () => {
+      const { rows, superseded } = mergeAthleteProfiles(withIds, [{ name: "Dana", bio: "d" }], stored);
+      expect(rows[1].profile?.bio).toBe("d");
+      expect(superseded).toEqual([]);
+    });
+  });
 });
 
 describe("mergeEventGuides", () => {

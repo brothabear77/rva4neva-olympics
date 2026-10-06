@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { BenchmarkForm } from "@/components/BenchmarkForm";
 import { DotPlot } from "@/components/ScoringDotPlot";
 import { DayTag, EmptyState, PageHeader, RankBadge, Stat } from "@/components/ui";
+import { canScore, getSession, isAdmin } from "@/lib/auth";
 import { scoreLadder } from "@/lib/profiles";
 import { getEventBySlug, getEventResults } from "@/lib/queries";
 import { formatMeasurement, isScorable } from "@/lib/scoring";
@@ -23,7 +24,7 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
   const event = await getEventBySlug(slug);
   if (!event) notFound();
 
-  const rows = await getEventResults(event.id);
+  const [rows, session] = await Promise.all([getEventResults(event.id), getSession()]);
   const best = rows[0] ?? null;
 
   return (
@@ -44,9 +45,11 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
             <Link href={`/info/events-guide?event=${event.slug}`} className="btn btn-ghost">
               Rules &amp; demo
             </Link>
-            <Link href="/submit" className="btn">
-              Submit a score
-            </Link>
+            {canScore(session) ? (
+              <Link href="/submit" className="btn">
+                Submit a score
+              </Link>
+            ) : null}
           </>
         }
       />
@@ -99,10 +102,16 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
 
       {rows.length === 0 ? (
         <EmptyState title="Nobody has contested this yet">
-          <Link href="/submit" className="text-accent underline underline-offset-4">
-            Post the first score
-          </Link>
-          .
+          {canScore(session) ? (
+            <>
+              <Link href="/submit" className="text-accent underline underline-offset-4">
+                Post the first score
+              </Link>
+              .
+            </>
+          ) : (
+            "Scores show up here as soon as they're entered."
+          )}
         </EmptyState>
       ) : (
         <div className="card overflow-x-auto">
@@ -158,9 +167,11 @@ export default async function EventPage(props: PageProps<"/events/[slug]">) {
         </div>
       )}
 
-      <div className="mt-8 border-t border-[var(--edge)] pt-6">
-        <BenchmarkForm event={event} sampleRaw={best?.rawValue ?? null} resultCount={rows.length} />
-      </div>
+      {isAdmin(session) ? (
+        <div className="mt-8 border-t border-[var(--edge)] pt-6">
+          <BenchmarkForm event={event} sampleRaw={best?.rawValue ?? null} resultCount={rows.length} />
+        </div>
+      ) : null}
     </>
   );
 }

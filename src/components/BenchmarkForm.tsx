@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import { updateEventBenchmarks } from "@/lib/actions";
 import { Banner } from "./ui";
-import { useScorekeeperName } from "./useScorekeeperName";
 import { formatMeasurement, scoreResult } from "@/lib/scoring";
 import type { ActionResult } from "@/lib/actions";
 import type { Event } from "@/lib/schema";
@@ -27,7 +26,6 @@ export function BenchmarkForm({
   resultCount: number;
 }) {
   const [open, setOpen] = useState(false);
-  const [name, setName] = useScorekeeperName();
   const [top, setTop] = useState(String(event.benchmarkStandard));
   const [zero, setZero] = useState(String(event.benchmarkZero));
 
@@ -115,20 +113,6 @@ export function BenchmarkForm({
             className="field tnum"
           />
         </div>
-      </div>
-
-      <div>
-        <label className="label" htmlFor="benchmarkBy">
-          Your name
-        </label>
-        <input
-          id="benchmarkBy"
-          name="submittedBy"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="So the change history says who retuned this"
-          className="field"
-        />
       </div>
 
       {identical ? (

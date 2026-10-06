@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { Geist, Geist_Mono, Oswald } from "next/font/google";
 import { NavTabs } from "@/components/NavTabs";
+import { SessionNav } from "@/components/SessionNav";
 import { SITE } from "@/lib/site";
 import "./globals.css";
 
@@ -28,7 +30,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} ${oswald.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col font-sans">
-        <NavTabs />
+        <Suspense fallback={<NavTabs />}>
+          <SessionNav />
+        </Suspense>
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
         <footer className="border-t border-[var(--edge)] px-4 py-6">
           <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 text-xs text-muted">
