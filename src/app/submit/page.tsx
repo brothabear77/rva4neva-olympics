@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { RosterEditor } from "@/components/RosterEditor";
 import { SubmitPanels } from "@/components/SubmitPanels";
 import { LockedBanner } from "@/components/LockedBanner";
 import { PageHeader } from "@/components/ui";
-import { canScore, getSession, isAdmin } from "@/lib/auth";
+import { canScore, getSession } from "@/lib/auth";
 import { submissionsLocked } from "@/lib/flags";
-import { getAthletes, getEventsForForm, getResultValues, getRoster } from "@/lib/queries";
+import { getAthletes, getEventsForForm, getResultValues } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +16,10 @@ export default async function SubmitPage() {
   if (!session) redirect("/login?next=/submit");
   if (!canScore(session)) redirect("/");
 
-  const [events, athletes, results, roster, locked] = await Promise.all([
+  const [events, athletes, results, locked] = await Promise.all([
     getEventsForForm(),
     getAthletes(),
     getResultValues(),
-    getRoster(),
     submissionsLocked(),
   ]);
 
@@ -40,8 +38,6 @@ export default async function SubmitPage() {
       {locked ? <LockedBanner /> : null}
 
       <SubmitPanels events={events} athletes={athletes} results={results} locked={locked} />
-
-      {isAdmin(session) ? <RosterEditor roster={roster} locked={locked} /> : null}
     </>
   );
 }

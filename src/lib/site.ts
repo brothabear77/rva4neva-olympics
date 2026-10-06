@@ -27,17 +27,24 @@ export function hasStarted(now: number = Date.now()): boolean {
   return now >= new Date(SITE.startsAt).getTime();
 }
 
+/** LaunchDarkly key for the Vlog page. It lives here, not in flags.ts, so the nav can name it; flags.ts re-exports it. */
+export const SHOW_VLOG_FLAG = "show-vlog-page";
+
 export interface NavLink {
   href: string;
   label: string;
   /** Shown only to the scorekeeper and the admin. */
   scorekeepersOnly?: boolean;
+  /** Shown only while this LaunchDarkly boolean flag is on. The server evaluates it (see SessionNav). */
+  featureFlag?: string;
 }
 
 /** A tab that opens a small menu of pages instead of going somewhere itself. */
 export interface NavMenu {
   label: string;
   items: readonly NavLink[];
+  /** Shown only to signed-in athletes and the admin (not scorekeepers or visitors). */
+  membersOnly?: boolean;
 }
 
 export type NavItem = NavLink | NavMenu;
@@ -53,6 +60,15 @@ export const NAV: readonly NavItem[] = [
       { href: "/info/events-guide", label: "Event Guide" },
       { href: "/info/scoring", label: "Scoring" },
       { href: "/info/calculator", label: "Calculator" },
+    ],
+  },
+  {
+    label: "Athletes",
+    membersOnly: true,
+    items: [
+      { href: "/athletes/progress", label: "Progress" },
+      { href: "/athletes/vlog", label: "Vlog", featureFlag: SHOW_VLOG_FLAG },
+      { href: "/athletes/vote", label: "Vote" },
     ],
   },
   { href: "/submit", label: "Submit Results", scorekeepersOnly: true },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_NAME_LENGTH, checkAthleteName, deletePrompt, normalizeName } from "../roster";
+import { MAX_NAME_LENGTH, checkAthleteName, normalizeName } from "../roster";
 
 const roster = [
   { id: "1", name: "Nick" },
@@ -57,16 +57,5 @@ describe("checkAthleteName", () => {
       ok: false,
       error: "Dana Scully is already on the roster.",
     });
-  });
-});
-
-describe("deletePrompt", () => {
-  it("names the scores that go with the athlete", () => {
-    expect(deletePrompt("Casey", 3)).toBe("Delete Casey and their 3 scores?");
-    expect(deletePrompt("Casey", 1)).toBe("Delete Casey and their 1 score?");
-  });
-
-  it("does not mention scores when there are none", () => {
-    expect(deletePrompt("Casey", 0)).toBe("Delete Casey?");
   });
 });

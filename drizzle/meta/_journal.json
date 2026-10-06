@@ -43,6 +43,13 @@
       "when": 1791268001019,
       "tag": "0005_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791314516367,
+      "tag": "0006_athlete_hub",
+      "breakpoints": true
     }
   ]
 }

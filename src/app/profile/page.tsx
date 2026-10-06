@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AthletePhoto } from "@/components/AthletePhoto";
+import { NameEditor } from "@/components/NameEditor";
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { WalkoutPicker } from "@/components/WalkoutSong";
 import { PageHeader } from "@/components/ui";
@@ -38,7 +39,7 @@ export default async function ProfilePage(props: PageProps<"/profile">) {
       <PageHeader
         eyebrow={own ? "Your profile" : "Editing as admin"}
         title={profile.name}
-        description="What everyone sees about you on the Athletes page, and the song that plays when you walk out."
+        description="Your name, what everyone sees about you on the Athletes page, and the song that plays when you walk out."
         actions={
           <Link href="/info/athletes" className="btn btn-ghost">
             Athletes
@@ -49,6 +50,7 @@ export default async function ProfilePage(props: PageProps<"/profile">) {
       <div className="card flex flex-wrap items-start gap-6 p-4 sm:p-6">
         <AthletePhoto name={profile.name} src={profile.photo || undefined} key={profile.photo || "none"} />
         <div className="min-w-[16rem] flex-1">
+          <NameEditor athleteId={profile.athleteId} name={profile.name} key={profile.name} />
           <ProfileEditor athleteId={profile.athleteId} name={profile.name} tagline={profile.tagline} bio={profile.bio} />
           <p className="mt-6 text-xs text-muted">Photos can&apos;t be changed here yet. Send a new one to the admin.</p>
         </div>

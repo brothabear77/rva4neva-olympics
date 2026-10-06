@@ -1,7 +1,7 @@
 /**
- * Rules for athlete names, shared by the roster editor (for instant feedback as
- * you type) and the server (which checks again, because the browser is not
- * trusted and the roster may have changed since the page loaded).
+ * Rules for athlete names, for a form to check as you type and for the server to
+ * check again (the browser is not trusted, and the roster may have changed since
+ * the page loaded).
  */
 
 export const MAX_NAME_LENGTH = 80;
@@ -34,10 +34,4 @@ export function checkAthleteName(
   if (clash) return { ok: false, error: `${clash.name} is already on the roster.` };
 
   return { ok: true, name };
-}
-
-/** The question asked before a delete, naming what else goes with the athlete. */
-export function deletePrompt(name: string, scores: number): string {
-  if (scores === 0) return `Delete ${name}?`;
-  return `Delete ${name} and their ${scores} score${scores === 1 ? "" : "s"}?`;
 }

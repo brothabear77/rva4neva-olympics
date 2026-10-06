@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { approveClaim, rejectClaim, removeAccount, setScorekeeper } from "@/lib/authActions";
 import type { ActionResult } from "@/lib/actions";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { Banner } from "./ui";
 
 const LINK = "text-sm text-muted underline-offset-4 hover:text-accent hover:underline disabled:opacity-40";
@@ -96,7 +97,7 @@ const ROLE_LABEL: Record<AccountView["role"], string> = {
 
 export function AccountsPanel({ accounts }: { accounts: AccountView[] }) {
   const { message, working, run } = useRunner();
-  const [confirming, setConfirming] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<AccountView | null>(null);
 
   return (
     <section aria-labelledby="accounts-heading" className="mt-12">
@@ -130,29 +131,9 @@ export function AccountsPanel({ accounts }: { accounts: AccountView[] }) {
                       />
                       Can enter scores
                     </label>
-                    {confirming === account.id ? (
-                      <span className="flex items-center gap-3">
-                        <span className="text-sm text-paper">Remove {account.name}&apos;s account?</span>
-                        <button
-                          type="button"
-                          disabled={working}
-                          onClick={() => {
-                            setConfirming(null);
-                            run(() => removeAccount(account.id));
-                          }}
-                          className={LINK}
-                        >
-                          Yes, remove
-                        </button>
-                        <button type="button" onClick={() => setConfirming(null)} className={LINK}>
-                          Keep
-                        </button>
-                      </span>
-                    ) : (
-                      <button type="button" disabled={working} onClick={() => setConfirming(account.id)} className={LINK}>
-                        Remove
-                      </button>
-                    )}
+                    <button type="button" disabled={working} onClick={() => setRemoving(account)} className={LINK}>
+                      Remove
+                    </button>
                   </div>
                 )}
               </li>
@@ -160,6 +141,23 @@ export function AccountsPanel({ accounts }: { accounts: AccountView[] }) {
           </ul>
         )}
       </div>
+
+      <ConfirmDialog
+        open={removing !== null}
+        title={removing ? `Remove ${removing.name}'s account?` : ""}
+        confirmLabel="Yes, remove"
+        busyLabel="Removing…"
+        busy={working}
+        onConfirm={() => {
+          if (!removing) return;
+          const id = removing.id;
+          setRemoving(null);
+          run(() => removeAccount(id));
+        }}
+        onCancel={() => setRemoving(null)}
+      >
+        They&apos;re signed out at once, and their athlete can be claimed again. Their profile stays.
+      </ConfirmDialog>
     </section>
   );
 }

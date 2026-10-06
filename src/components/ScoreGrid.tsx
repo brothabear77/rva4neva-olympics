@@ -44,8 +44,8 @@ const FILL_ACTIVE = "bg-[color-mix(in_oklab,var(--color-accent)_12%,var(--raise)
 /**
  * A scoresheet: one column per event across the top, one row per athlete down
  * the side, a cell for each pairing. A toggle switches it between two jobs, and
- * each job is deliberately one-directional. Who is on the roster is managed
- * separately, in the roster editor below the grid.
+ * each job is deliberately one-directional. The grid only shows who is on the
+ * roster; it never adds or removes anyone.
  *
  * ADD mode. Every cell starts empty. A score that is already stored shows as a
  * gray placeholder (with its points underneath). Type in a cell to add or replace

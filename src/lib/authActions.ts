@@ -3,13 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { and, count, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "./db";
+import { db, withActor } from "./db";
 import { accounts, athleteProfiles, athletes, claimRequests } from "./schema";
 import { authorize, canEditAthlete, createSession, destroySession, getSession, refusal } from "./auth";
 import { checkPassword, normalizePhone } from "./credentials";
 import { hashPassword, verifyPassword } from "./password";
 import { ATHLETE_PROFILES } from "@/content/athletes";
 import { MAX_BIO_LENGTH, MAX_TAGLINE_LENGTH, mergeAthleteProfiles, type AthleteProfile } from "./profiles";
+import { checkAthleteName } from "./roster";
+import { syncOpenProposals } from "./proposalClock";
 import type { ActionResult } from "./actions";
 
 /**
@@ -30,7 +32,7 @@ const MAX_FAILED_LOGINS = 5;
 const LOCKOUT_MS = 60_000;
 
 function revalidateAccounts() {
-  for (const path of ["/admin", "/login", "/claim", "/info/athletes"]) revalidatePath(path);
+  for (const path of ["/admin", "/login", "/claim", "/info/athletes", "/athletes/vote"]) revalidatePath(path);
 }
 
 /** What src/content/athletes.ts says about this athlete, if anything. */
@@ -159,6 +161,8 @@ export async function approveClaim(claimId: string): Promise<ActionResult> {
         .onConflictDoNothing();
 
       await tx.delete(claimRequests).where(eq(claimRequests.athleteId, athlete.id));
+      // A new athlete who hasn't voted means no proposal has full turnout any more.
+      await syncOpenProposals(tx);
       return athlete.name;
     });
 
@@ -188,10 +192,15 @@ export async function removeAccount(accountId: string): Promise<ActionResult> {
   if (!(await authorize("admin"))) return fail(await refusal());
   if (!z.string().uuid().safeParse(accountId).success) return fail("Missing account.");
 
-  const removed = await db
-    .delete(accounts)
-    .where(and(eq(accounts.id, accountId), sql`${accounts.staffName} is null`))
-    .returning();
+  const removed = await db.transaction(async (tx) => {
+    const rows = await tx
+      .delete(accounts)
+      .where(and(eq(accounts.id, accountId), sql`${accounts.staffName} is null`))
+      .returning();
+    // One fewer athlete to wait for may mean everyone left has voted.
+    if (rows.length) await syncOpenProposals(tx);
+    return rows;
+  });
   revalidateAccounts();
   return removed.length ? ok("Account removed. The athlete can be claimed again.") : fail("That account can't be removed here.");
 }
@@ -244,4 +253,62 @@ export async function updateProfile(input: { athleteId: string; tagline: string;
   revalidatePath("/info/athletes");
   revalidatePath("/profile");
   return ok("Profile saved.");
+}
+
+/** Everywhere a name is shown: a rename touches the whole site. */
+const NAME_PATHS = ["/", "/leaderboard", "/events", "/submit", "/changelog", "/info/athletes", "/profile", "/athletes/progress", "/athletes/vote"];
+
+/**
+ * Change an athlete's name: your own, or anyone's for the admin. The athlete's scores,
+ * account, walkout song and votes follow along, since they hang off the id, and the
+ * change lands in Change History (where it can be undone) like any other to `athletes`.
+ *
+ * One thing hangs off the name: a bio or photo still written in src/content/athletes.ts
+ * is matched by it. So if the athlete has no profile in the database yet, the file's
+ * entry is copied there in the same transaction, and renaming never loses it.
+ */
+export async function renameAthlete(input: { athleteId: string; name: string }): Promise<ActionResult> {
+  const parsed = z.object({ athleteId: z.string().uuid(), name: z.string() }).safeParse(input);
+  if (!parsed.success) return fail("Check the name and try again.");
+
+  const session = await getSession();
+  if (!canEditAthlete(session, parsed.data.athleteId)) return fail(await refusal());
+
+  try {
+    const message = await withActor({ actor: session!.displayName }, async (tx) => {
+      const [current] = await tx.select().from(athletes).where(eq(athletes.id, parsed.data.athleteId)).limit(1);
+      if (!current) throw new Error("That athlete is no longer on the roster.");
+
+      // The athlete's own id is excluded so they don't clash with themselves, which is
+      // also what lets a rename change only the capitalisation.
+      const roster = await tx.select({ id: athletes.id, name: athletes.name }).from(athletes);
+      const check = checkAthleteName(parsed.data.name, roster, current.id);
+      if (!check.ok) throw new Error(check.error);
+      if (check.name === current.name) throw new Error("That is already the name.");
+
+      const [stored] = await tx
+        .select({ athleteId: athleteProfiles.athleteId })
+        .from(athleteProfiles)
+        .where(eq(athleteProfiles.athleteId, current.id))
+        .limit(1);
+      const fromFile = stored ? null : fileProfileFor(current);
+      if (fromFile) {
+        await tx.insert(athleteProfiles).values({
+          athleteId: current.id,
+          tagline: fromFile.tagline?.trim() ?? "",
+          bio: fromFile.bio?.trim() ?? "",
+          photo: fromFile.photo?.trim() ?? "",
+        });
+      }
+
+      await tx.update(athletes).set({ name: check.name }).where(eq(athletes.id, current.id));
+      return `Renamed ${current.name} to ${check.name}.`;
+    });
+
+    for (const path of NAME_PATHS) revalidatePath(path);
+    return ok(message);
+  } catch (error) {
+    if ((error as { code?: string }).code === "23505") return fail("Someone with that name is already on the roster.");
+    return fail(error instanceof Error ? error.message : "Something went wrong. Nothing was saved.");
+  }
 }

@@ -4,11 +4,13 @@ import {
   bigserial,
   boolean,
   check,
+  date,
   index,
   integer,
   jsonb,
   numeric,
   pgSchema,
+  primaryKey,
   smallint,
   text,
   timestamp,
@@ -147,6 +149,64 @@ export const sessions = appSchema.table(
   (t) => [index("sessions_account_idx").on(t.accountId)],
 );
 
+// --- the athletes' pages ---------------------------------------------------------
+//
+// Not audited either: a practice attempt or a vote is not a score.
+
+/** One practice attempt at an event, logged by the athlete. Private to them (and the admin). */
+export const practiceAttempts = appSchema.table(
+  "practice_attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    athleteId: uuid("athlete_id")
+      .notNull()
+      .references(() => athletes.id, { onDelete: "cascade" }),
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    /** In the event's own unit, like results.raw_value. */
+    rawValue: numeric("raw_value", { precision: 12, scale: 4, mode: "number" }).notNull(),
+    /** The calendar day it happened, in Eastern time. */
+    attemptedOn: date("attempted_on", { mode: "string" }).notNull(),
+    notes: text("notes").notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("practice_attempts_athlete_event_idx").on(t.athleteId, t.eventId, t.attemptedOn)],
+);
+
+/** A change someone proposes to the group. Open for a week, then decided by `decideProposal`. */
+export const proposals = appSchema.table(
+  "proposals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    athleteId: uuid("athlete_id")
+      .notNull()
+      .references(() => athletes.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    body: text("body").notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    closesAt: timestamp("closes_at", { withTimezone: true }).notNull(),
+    withdrawnAt: timestamp("withdrawn_at", { withTimezone: true }),
+  },
+  (t) => [index("proposals_closes_idx").on(t.closesAt)],
+);
+
+/** One athlete's vote on one proposal. Changing your mind rewrites the row. */
+export const proposalVotes = appSchema.table(
+  "proposal_votes",
+  {
+    proposalId: uuid("proposal_id")
+      .notNull()
+      .references(() => proposals.id, { onDelete: "cascade" }),
+    athleteId: uuid("athlete_id")
+      .notNull()
+      .references(() => athletes.id, { onDelete: "cascade" }),
+    inFavor: boolean("in_favor").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.proposalId, t.athleteId] })],
+);
+
 export const events = appSchema.table(
   "events",
   {
@@ -255,6 +315,8 @@ export type WalkoutSongRow = typeof walkoutSongs.$inferSelect;
 export type AthleteProfileRow = typeof athleteProfiles.$inferSelect;
 export type Account = typeof accounts.$inferSelect;
 export type AccountRole = (typeof accountRole.enumValues)[number];
+export type PracticeAttempt = typeof practiceAttempts.$inferSelect;
+export type Proposal = typeof proposals.$inferSelect;
 export type ClaimRequest = typeof claimRequests.$inferSelect;
 export type Event = typeof events.$inferSelect;
 export type Result = typeof results.$inferSelect;
