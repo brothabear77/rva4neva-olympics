@@ -18,6 +18,10 @@ import {
 
 // --- what gets written in the content files ---------------------------------
 
+/** Limits on what an athlete can write about themselves on their own profile. */
+export const MAX_TAGLINE_LENGTH = 160;
+export const MAX_BIO_LENGTH = 2000;
+
 export interface AthleteProfile {
   /** Must match the athlete's name on the roster. Case and extra spaces do not matter. */
   name: string;
@@ -82,6 +86,13 @@ export function initials(name: string): string {
 
 // --- matching what was written to the database rows ----------------------------
 
+/** A profile that has moved into the database (app.athlete_profiles). Empty strings mean "not written". */
+export interface StoredProfile {
+  tagline: string;
+  bio: string;
+  photo: string;
+}
+
 export interface AthleteMerge<T> {
   /** Every roster athlete, in roster order, with their profile if one was written. */
   rows: Array<{ athlete: T; profile: AthleteProfile | null }>;
@@ -89,11 +100,19 @@ export interface AthleteMerge<T> {
   unmatched: AthleteProfile[];
   /** A second profile for a name that already has one. The first is used. */
   duplicates: AthleteProfile[];
+  /** File entries for athletes whose profile is in the database now: safe to delete from the file. */
+  superseded: AthleteProfile[];
 }
 
-export function mergeAthleteProfiles<T extends { name: string }>(
+/**
+ * Pair each roster athlete with their profile. A profile in the database (`stored`,
+ * by athlete id) wins over the content file's entry: once someone has claimed their
+ * account, what they wrote is what shows.
+ */
+export function mergeAthleteProfiles<T extends { name: string; id?: string }>(
   roster: readonly T[],
   profiles: readonly AthleteProfile[],
+  stored: ReadonlyMap<string, StoredProfile> = new Map(),
 ): AthleteMerge<T> {
   const byKey = new Map<string, AthleteProfile>();
   const duplicates: AthleteProfile[] = [];
@@ -107,12 +126,26 @@ export function mergeAthleteProfiles<T extends { name: string }>(
 
   const rosterKeys = new Set(roster.map((a) => keyOf(a.name)));
   const unmatched = [...byKey.entries()].filter(([key]) => !rosterKeys.has(key)).map(([, p]) => p);
+  const superseded: AthleteProfile[] = [];
 
-  return {
-    rows: roster.map((athlete) => ({ athlete, profile: byKey.get(keyOf(athlete.name)) ?? null })),
-    unmatched,
-    duplicates,
-  };
+  const rows = roster.map((athlete) => {
+    const fromFile = byKey.get(keyOf(athlete.name)) ?? null;
+    const fromDb = athlete.id ? stored.get(athlete.id) : undefined;
+    if (!fromDb) return { athlete, profile: fromFile };
+
+    if (fromFile) superseded.push(fromFile);
+    return {
+      athlete,
+      profile: {
+        name: athlete.name,
+        photo: clean(fromDb.photo),
+        tagline: clean(fromDb.tagline),
+        bio: clean(fromDb.bio),
+      },
+    };
+  });
+
+  return { rows, unmatched, duplicates, superseded };
 }
 
 export interface EventMerge<T> {

@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 import { addAthlete, deleteAthlete, renameAthlete, type ActionResult } from "@/lib/actions";
 import { MAX_NAME_LENGTH, checkAthleteName, deletePrompt } from "@/lib/roster";
 import { Banner } from "./ui";
-import { useScorekeeperName } from "./useScorekeeperName";
 
 export interface RosterEntry {
   id: string;
@@ -26,7 +25,6 @@ const LINK = "text-sm text-muted underline-offset-4 hover:text-accent hover:unde
  * History (which brings the athlete back together with every score removed).
  */
 export function RosterEditor({ roster, locked = false }: { roster: RosterEntry[]; locked?: boolean }) {
-  const [scorekeeper, setScorekeeper] = useScorekeeperName();
   const [newName, setNewName] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ id: string; text: string; error: string | null } | null>(null);
@@ -48,7 +46,7 @@ export function RosterEditor({ roster, locked = false }: { roster: RosterEntry[]
     if (!check.ok) return setAddError(check.error);
     setAddError(null);
     run(
-      () => addAthlete({ name: check.name, submittedBy: scorekeeper }),
+      () => addAthlete({ name: check.name }),
       () => setNewName(""),
     );
   };
@@ -62,14 +60,14 @@ export function RosterEditor({ roster, locked = false }: { roster: RosterEntry[]
     if (current && check.name === current.name) return setEditing(null); // nothing changed
 
     run(
-      () => renameAthlete({ id: editing.id, name: check.name, submittedBy: scorekeeper }),
+      () => renameAthlete({ id: editing.id, name: check.name }),
       () => setEditing(null),
     );
   };
 
   const confirmDelete = (id: string) =>
     run(
-      () => deleteAthlete({ id, submittedBy: scorekeeper }),
+      () => deleteAthlete({ id }),
       () => setConfirming(null),
     );
 
@@ -87,7 +85,7 @@ export function RosterEditor({ roster, locked = false }: { roster: RosterEntry[]
       </div>
 
       <div className="card space-y-5 p-4 sm:p-6">
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="max-w-md">
           <div>
             <label className="label" htmlFor="rosterNew">
               Add an athlete
@@ -122,20 +120,6 @@ export function RosterEditor({ roster, locked = false }: { roster: RosterEntry[]
                 {addError}
               </p>
             ) : null}
-          </div>
-
-          <div>
-            <label className="label" htmlFor="rosterBy">
-              Your name
-            </label>
-            <input
-              id="rosterBy"
-              value={scorekeeper}
-              onChange={(e) => setScorekeeper(e.target.value)}
-              maxLength={80}
-              placeholder="Recorded in the change history"
-              className="field"
-            />
           </div>
         </div>
 

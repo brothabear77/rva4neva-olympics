@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, withActor, type Tx } from "./db";
+import { authorize, canEditAthlete, getSession, refusal } from "./auth";
 import { athletes, changeLog, events, importBatches, walkoutSongs } from "./schema";
 import { results } from "./resultsTable";
 import { isScorable, scoreResult } from "./scoring";
@@ -26,9 +27,11 @@ import {
 /**
  * Every write goes through here.
  *
- * Two rules hold throughout: writes run inside `withActor`, so the audit
- * triggers can attribute them, and anything touching more than one row runs in
- * a single transaction, so the scoreboard is never half-updated.
+ * Three rules hold throughout: every action checks the signed-in account first
+ * (see auth.ts — the page hiding a button is not enough), writes run inside
+ * `withActor` with that account's name, so the audit triggers can attribute them,
+ * and anything touching more than one row runs in a single transaction, so the
+ * scoreboard is never half-updated.
  */
 
 export interface ActionResult<T = undefined> {
@@ -59,8 +62,8 @@ function describeError(error: unknown): string {
 
 /**
  * Look up an athlete by name, case-insensitively, adding them if they are new.
- * Anyone can be entered mid-event without a roster step, which is the point of
- * a wide-open submit page.
+ * A CSV can name someone new, and the scorekeeper shouldn't have to stop and
+ * add them to the roster first.
  */
 async function findOrCreateAthlete(tx: Tx, name: string) {
   const trimmed = name.trim();
@@ -89,7 +92,6 @@ async function findOrCreateAthlete(tx: Tx, name: string) {
 // ---------------------------------------------------------------------------
 
 const gridSchema = z.object({
-  submittedBy: z.string().trim().max(80).default(""),
   changes: z
     .array(
       z.object({
@@ -121,12 +123,14 @@ const gridSchema = z.object({
  * notes column, and overwriting them with blanks would lose them.
  */
 export async function submitGrid(input: GridSubmission): Promise<ActionResult<{ saved: number }>> {
+  const session = await authorize("scorekeeper");
+  if (!session) return fail(await refusal());
   if (await submissionsLocked()) return fail(SUBMISSIONS_LOCKED_MESSAGE);
 
   const parsed = gridSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the grid and try again.");
-  const { changes, submittedBy } = parsed.data;
-  const actor = submittedBy || "anonymous";
+  const { changes } = parsed.data;
+  const actor = session.displayName;
 
   try {
     const outcome = await withActor({ actor }, async (tx) => {
@@ -164,7 +168,7 @@ export async function submitGrid(input: GridSubmission): Promise<ActionResult<{ 
             athleteId: athlete.id,
             rawValue: change.value,
             points: scoreResult(change.value, event),
-            submittedBy,
+            submittedBy: actor,
             source: "ui",
           })
           .onConflictDoUpdate({
@@ -194,7 +198,6 @@ export async function submitGrid(input: GridSubmission): Promise<ActionResult<{ 
 // ---------------------------------------------------------------------------
 
 const gridDeleteSchema = z.object({
-  submittedBy: z.string().trim().max(80).default(""),
   cells: z
     .array(z.object({ athleteId: z.string().uuid(), eventId: z.string().uuid() }))
     .min(1, "There is nothing to delete.")
@@ -214,14 +217,16 @@ const gridDeleteSchema = z.object({
  * (someone else deleted it first) is simply skipped.
  */
 export async function deleteScores(input: GridDeletion): Promise<ActionResult<{ deleted: number }>> {
+  const session = await authorize("scorekeeper");
+  if (!session) return fail(await refusal());
   if (await submissionsLocked()) return fail(SUBMISSIONS_LOCKED_MESSAGE);
 
   const parsed = gridDeleteSchema.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the grid and try again.");
-  const { cells, submittedBy } = parsed.data;
+  const { cells } = parsed.data;
 
   try {
-    const outcome = await withActor({ actor: submittedBy || "anonymous" }, async (tx) => {
+    const outcome = await withActor({ actor: session.displayName }, async (tx) => {
       let deleted = 0;
       for (const cell of cells) {
         const gone = await tx
@@ -249,17 +254,17 @@ export async function deleteScores(input: GridDeletion): Promise<ActionResult<{ 
 // Managing the roster
 // ---------------------------------------------------------------------------
 
-const rosterActor = z.string().trim().max(80).default("");
-
 /** The roster as the name rules need to see it, read inside the transaction. */
 const currentRoster = (tx: Tx) => tx.select({ id: athletes.id, name: athletes.name }).from(athletes);
 
-export async function addAthlete(input: { name: string; submittedBy: string }): Promise<ActionResult> {
-  const parsed = z.object({ name: z.string(), submittedBy: rosterActor }).safeParse(input);
+export async function addAthlete(input: { name: string }): Promise<ActionResult> {
+  const session = await authorize("admin");
+  if (!session) return fail(await refusal());
+  const parsed = z.object({ name: z.string() }).safeParse(input);
   if (!parsed.success) return fail("Enter a name.");
 
   try {
-    const added = await withActor({ actor: parsed.data.submittedBy || "anonymous" }, async (tx) => {
+    const added = await withActor({ actor: session.displayName }, async (tx) => {
       const check = checkAthleteName(parsed.data.name, await currentRoster(tx));
       if (!check.ok) throw new Error(check.error);
       const [row] = await tx.insert(athletes).values({ name: check.name }).returning();
@@ -274,12 +279,14 @@ export async function addAthlete(input: { name: string; submittedBy: string }): 
   }
 }
 
-export async function renameAthlete(input: { id: string; name: string; submittedBy: string }): Promise<ActionResult> {
-  const parsed = z.object({ id: z.string().uuid(), name: z.string(), submittedBy: rosterActor }).safeParse(input);
+export async function renameAthlete(input: { id: string; name: string }): Promise<ActionResult> {
+  const session = await authorize("admin");
+  if (!session) return fail(await refusal());
+  const parsed = z.object({ id: z.string().uuid(), name: z.string() }).safeParse(input);
   if (!parsed.success) return fail("Check the name and try again.");
 
   try {
-    const message = await withActor({ actor: parsed.data.submittedBy || "anonymous" }, async (tx) => {
+    const message = await withActor({ actor: session.displayName }, async (tx) => {
       const [current] = await tx.select().from(athletes).where(eq(athletes.id, parsed.data.id)).limit(1);
       if (!current) throw new Error("That athlete is no longer on the roster. Reload the page.");
 
@@ -309,15 +316,17 @@ export async function renameAthlete(input: { id: string; name: string; submitted
  * score's deletion in one transaction, and "Undo" on the athlete's entry in Change
  * History brings back the athlete and every score removed with them.
  */
-export async function deleteAthlete(input: { id: string; submittedBy: string }): Promise<ActionResult<{ scores: number }>> {
+export async function deleteAthlete(input: { id: string }): Promise<ActionResult<{ scores: number }>> {
+  const session = await authorize("admin");
+  if (!session) return fail(await refusal());
   // Locked along with score deletion: this deletes the athlete's scores too.
   if (await submissionsLocked()) return fail(SUBMISSIONS_LOCKED_MESSAGE);
 
-  const parsed = z.object({ id: z.string().uuid(), submittedBy: rosterActor }).safeParse(input);
+  const parsed = z.object({ id: z.string().uuid() }).safeParse(input);
   if (!parsed.success) return fail("Pick an athlete to delete.");
 
   try {
-    const outcome = await withActor({ actor: parsed.data.submittedBy || "anonymous" }, async (tx) => {
+    const outcome = await withActor({ actor: session.displayName }, async (tx) => {
       const [current] = await tx.select().from(athletes).where(eq(athletes.id, parsed.data.id)).limit(1);
       if (!current) throw new Error("That athlete was already removed.");
 
@@ -356,6 +365,8 @@ const SONGS_NOT_READY = "Walkout songs are still being set up. Try again in a fe
  * An episode can only be set this way; search finds tracks.
  */
 export async function searchWalkoutSongs(query: string): Promise<ActionResult<WalkoutSong[]>> {
+  // Signed-in only: each search spends the site's Spotify quota.
+  if (!(await getSession())) return fail(await refusal());
   const text = String(query ?? "").trim();
   if (text.length < MIN_QUERY_LENGTH) return fail("Type at least two letters.");
   if (text.length > MAX_QUERY_LENGTH) return fail("That search is too long.");
@@ -388,6 +399,7 @@ export async function setWalkoutSong(input: {
     })
     .safeParse(input);
   if (!parsed.success) return fail("Pick a song from the list and try again.");
+  if (!canEditAthlete(await getSession(), parsed.data.athleteId)) return fail(await refusal());
 
   const item = await getWalkoutItem(parsed.data.kind, parsed.data.spotifyId);
   if (!item.ok) return fail(item.message);
@@ -409,12 +421,14 @@ export async function setWalkoutSong(input: {
   }
 
   revalidatePath("/info/athletes");
+  revalidatePath("/profile");
   return ok(`Walkout song set to ${describeWalkout(item.data)}.`);
 }
 
 export async function clearWalkoutSong(input: { athleteId: string }): Promise<ActionResult> {
   const parsed = z.object({ athleteId: z.string().uuid() }).safeParse(input);
   if (!parsed.success) return fail("Pick an athlete first.");
+  if (!canEditAthlete(await getSession(), parsed.data.athleteId)) return fail(await refusal());
 
   try {
     await db.delete(walkoutSongs).where(eq(walkoutSongs.athleteId, parsed.data.athleteId));
@@ -424,6 +438,7 @@ export async function clearWalkoutSong(input: { athleteId: string }): Promise<Ac
   }
 
   revalidatePath("/info/athletes");
+  revalidatePath("/profile");
   return ok("Walkout song removed.");
 }
 
@@ -437,7 +452,6 @@ const benchmarkSchema = z
     benchmarkStandard: z.coerce.number().finite("Enter a number"),
     benchmarkZero: z.coerce.number().finite("Enter a number"),
     decimals: z.coerce.number().int().min(0).max(4),
-    submittedBy: z.string().trim().max(80).default(""),
   })
   .refine((v) => v.benchmarkStandard !== v.benchmarkZero, {
     message: "The two benchmarks must differ — otherwise the event has no scale.",
@@ -453,17 +467,19 @@ const benchmarkSchema = z
  * form uses — is what keeps them honest. Each rescored row is logged.
  */
 export async function updateEventBenchmarks(formData: FormData): Promise<ActionResult> {
+  const session = await authorize("admin");
+  if (!session) return fail(await refusal());
+
   const parsed = benchmarkSchema.safeParse({
     eventId: formData.get("eventId"),
     benchmarkStandard: formData.get("benchmarkStandard"),
     benchmarkZero: formData.get("benchmarkZero"),
     decimals: formData.get("decimals"),
-    submittedBy: formData.get("submittedBy") ?? "",
   });
 
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the values and try again.");
   const input = parsed.data;
-  const actor = input.submittedBy || "anonymous";
+  const actor = session.displayName;
 
   try {
     const rescored = await withActor({ actor }, async (tx) => {
@@ -522,6 +538,8 @@ async function currentImportContext() {
 
 /** Parse and validate an upload without writing anything. */
 export async function previewImport(csvText: string): Promise<ActionResult<ImportPreview>> {
+  if (!(await authorize("scorekeeper"))) return fail(await refusal());
+
   try {
     const { eventList, athleteList, resultList } = await currentImportContext();
     const preview = buildImportPreview(parseResultsCsv(csvText), eventList, athleteList, resultList);
@@ -546,11 +564,12 @@ export async function previewImport(csvText: string): Promise<ActionResult<Impor
 export async function commitImport(
   csvText: string,
   filename: string,
-  submittedBy: string,
 ): Promise<ActionResult<{ created: number; updated: number; unchanged: number }>> {
+  const session = await authorize("scorekeeper");
+  if (!session) return fail(await refusal());
   if (await submissionsLocked()) return fail(SUBMISSIONS_LOCKED_MESSAGE);
 
-  const actor = submittedBy.trim() || "csv upload";
+  const actor = session.displayName;
 
   try {
     const { eventList, athleteList, resultList } = await currentImportContext();
@@ -824,10 +843,12 @@ async function restoreAthlete(tx: Tx, entry: AuditEntry): Promise<string> {
  * exactly like any other change.
  */
 export async function restoreChange(formData: FormData): Promise<ActionResult> {
+  const session = await authorize("scorekeeper");
+  if (!session) return fail(await refusal());
   if (await submissionsLocked()) return fail(SUBMISSIONS_LOCKED_MESSAGE);
 
   const entryId = Number(formData.get("entryId"));
-  const actor = String(formData.get("submittedBy") ?? "").trim() || "anonymous";
+  const actor = session.displayName;
   if (!Number.isFinite(entryId)) return fail("Missing change id.");
 
   try {

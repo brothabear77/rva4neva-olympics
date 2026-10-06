@@ -3,13 +3,17 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { NAV, SITE, isNavMenu, type NavMenu } from "@/lib/site";
 
 const TAB =
   "relative whitespace-nowrap px-3 py-2.5 font-display text-sm font-medium uppercase tracking-[0.1em] transition-colors";
 
-export function NavTabs() {
+/**
+ * `account` is the server-rendered sign-in link or account menu, shown at the right.
+ * `canScore` shows the scorekeeper-only tabs; the pages check again on their own.
+ */
+export function NavTabs({ account, canScore = false }: { account?: ReactNode; canScore?: boolean }) {
   const pathname = usePathname();
   const headerRef = useRef<HTMLElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -120,7 +124,7 @@ export function NavTabs() {
           onScroll={() => open && setOpen(null)}
           className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {NAV.map((item) => {
+          {NAV.filter((item) => canScore || isNavMenu(item) || !item.scorekeepersOnly).map((item) => {
             if (isNavMenu(item)) {
               const active = item.items.some((child) => isActive(child.href));
               const expanded = open === item.label;
@@ -188,7 +192,8 @@ export function NavTabs() {
           })}
         </nav>
 
-        <span className="eyebrow hidden shrink-0 md:inline">{SITE.tagline}</span>
+        <span className="eyebrow hidden shrink-0 xl:inline">{SITE.tagline}</span>
+        {account}
       </div>
 
       {openMenuData && isNavMenu(openMenuData) ? (

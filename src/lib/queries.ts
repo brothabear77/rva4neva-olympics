@@ -1,11 +1,13 @@
 import "server-only";
-import { asc, desc, eq, lt, sql } from "drizzle-orm";
+import { asc, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { db } from "./db";
-import { athletes, changeLog, events, walkoutSongs } from "./schema";
+import { accounts, athleteProfiles, athletes, changeLog, claimRequests, events, walkoutSongs } from "./schema";
 import { results } from "./resultsTable";
 import { isMigrationPending, type WalkoutSong } from "./walkout";
 import { formatMeasurement } from "./scoring";
 import { rankStandings } from "./ranking";
+import { mergeAthleteProfiles } from "./profiles";
+import { ATHLETE_PROFILES } from "@/content/athletes";
 import type { Event } from "./schema";
 
 /**
@@ -344,4 +346,157 @@ export async function getWalkoutSongs(): Promise<Map<string, WalkoutSong>> {
     console.warn("app.walkout_songs is not migrated yet. Showing no walkout songs.");
     return new Map();
   }
+}
+
+/** Tolerate the minutes between a deploy and the migration that adds a table it reads. */
+async function orWhileMigrating<T>(query: Promise<T>, fallback: T, table: string): Promise<T> {
+  try {
+    return await query;
+  } catch (error) {
+    if (!isMigrationPending(error)) throw error;
+    console.warn(`${table} is not migrated yet.`);
+    return fallback;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Profiles and accounts
+// ---------------------------------------------------------------------------
+
+/** Profiles that have moved into the database, by athlete id. */
+export async function getAthleteProfiles(): Promise<Map<string, { tagline: string; bio: string; photo: string }>> {
+  const rows = await orWhileMigrating(db.select().from(athleteProfiles), [], "app.athlete_profiles");
+  return new Map(rows.map((r) => [r.athleteId, { tagline: r.tagline, bio: r.bio, photo: r.photo }]));
+}
+
+export interface ProfileView {
+  athleteId: string;
+  name: string;
+  tagline: string;
+  bio: string;
+  photo: string;
+}
+
+/**
+ * One athlete's profile as the site shows it: the database's if they have one, else
+ * src/content/athletes.ts's entry. Null if they're not on the roster.
+ */
+export async function getProfile(athleteId: string): Promise<ProfileView | null> {
+  const [athlete] = await db.select({ id: athletes.id, name: athletes.name }).from(athletes).where(eq(athletes.id, athleteId)).limit(1);
+  if (!athlete) return null;
+
+  const stored = await orWhileMigrating(
+    db.select().from(athleteProfiles).where(eq(athleteProfiles.athleteId, athleteId)),
+    [],
+    "app.athlete_profiles",
+  );
+  const storedMap = new Map(stored.map((r) => [r.athleteId, { tagline: r.tagline, bio: r.bio, photo: r.photo }]));
+  const profile = mergeAthleteProfiles([athlete], ATHLETE_PROFILES, storedMap).rows[0]?.profile;
+
+  return {
+    athleteId: athlete.id,
+    name: athlete.name,
+    tagline: profile?.tagline?.trim() ?? "",
+    bio: profile?.bio?.trim() ?? "",
+    photo: profile?.photo?.trim() ?? "",
+  };
+}
+
+export interface LoginChoice {
+  accountId: string;
+  label: string;
+}
+
+/** Who can sign in: staff logins first, then athletes with an approved claim, by name. */
+export async function getLoginChoices(): Promise<LoginChoice[]> {
+  const rows = await orWhileMigrating(
+    db
+      .select({ accountId: accounts.id, staffName: accounts.staffName, athleteName: athletes.name })
+      .from(accounts)
+      .leftJoin(athletes, eq(athletes.id, accounts.athleteId)),
+    [],
+    "app.accounts",
+  );
+  const staff = rows.filter((r) => r.staffName).map((r) => ({ accountId: r.accountId, label: r.staffName! }));
+  const athleteChoices = rows
+    .filter((r) => r.athleteName)
+    .map((r) => ({ accountId: r.accountId, label: r.athleteName! }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  return [...staff.sort((a, b) => a.label.localeCompare(b.label)), ...athleteChoices];
+}
+
+/** Athletes nobody has an account for yet: the ones that can be claimed. */
+export async function getUnclaimedAthletes(): Promise<Array<{ id: string; name: string }>> {
+  return orWhileMigrating(
+    db
+      .select({ id: athletes.id, name: athletes.name })
+      .from(athletes)
+      .leftJoin(accounts, eq(accounts.athleteId, athletes.id))
+      .where(isNull(accounts.id))
+      .orderBy(asc(athletes.name)),
+    [],
+    "app.accounts",
+  );
+}
+
+export interface PendingClaim {
+  id: string;
+  athleteId: string;
+  athleteName: string;
+  phone: string;
+  createdAt: Date;
+}
+
+/** Claims waiting for the admin, oldest first. Admin-only: the page must check before calling. */
+export async function getPendingClaims(): Promise<PendingClaim[]> {
+  return orWhileMigrating(
+    db
+      .select({
+        id: claimRequests.id,
+        athleteId: claimRequests.athleteId,
+        athleteName: athletes.name,
+        phone: claimRequests.phone,
+        createdAt: claimRequests.createdAt,
+      })
+      .from(claimRequests)
+      .innerJoin(athletes, eq(athletes.id, claimRequests.athleteId))
+      .orderBy(asc(claimRequests.createdAt)),
+    [],
+    "app.claim_requests",
+  );
+}
+
+export interface AccountRow {
+  id: string;
+  name: string;
+  role: "athlete" | "scorekeeper" | "admin";
+  isStaff: boolean;
+  createdAt: Date;
+}
+
+/** Every account, staff first. Admin-only. */
+export async function getAccounts(): Promise<AccountRow[]> {
+  const rows = await orWhileMigrating(
+    db
+      .select({
+        id: accounts.id,
+        role: accounts.role,
+        staffName: accounts.staffName,
+        athleteName: athletes.name,
+        createdAt: accounts.createdAt,
+      })
+      .from(accounts)
+      .leftJoin(athletes, eq(athletes.id, accounts.athleteId)),
+    [],
+    "app.accounts",
+  );
+  return rows
+    .map((r) => ({
+      id: r.id,
+      name: r.staffName ?? r.athleteName ?? "?",
+      role: r.role,
+      isStaff: r.staffName !== null,
+      createdAt: r.createdAt,
+    }))
+    .sort((a, b) => Number(b.isStaff) - Number(a.isStaff) || a.name.localeCompare(b.name));
 }

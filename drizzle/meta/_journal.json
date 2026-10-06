@@ -36,6 +36,13 @@
       "when": 1790790671850,
       "tag": "0004_walkout_episodes",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791268001019,
+      "tag": "0005_auth",
+      "breakpoints": true
     }
   ]
 }

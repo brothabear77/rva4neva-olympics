@@ -30,6 +30,8 @@ export function hasStarted(now: number = Date.now()): boolean {
 export interface NavLink {
   href: string;
   label: string;
+  /** Shown only to the scorekeeper and the admin. */
+  scorekeepersOnly?: boolean;
 }
 
 /** A tab that opens a small menu of pages instead of going somewhere itself. */
@@ -53,7 +55,7 @@ export const NAV: readonly NavItem[] = [
       { href: "/info/calculator", label: "Calculator" },
     ],
   },
-  { href: "/submit", label: "Submit Results" },
+  { href: "/submit", label: "Submit Results", scorekeepersOnly: true },
 ];
 
 export function isNavMenu(item: NavItem): item is NavMenu {

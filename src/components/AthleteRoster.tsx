@@ -1,4 +1,5 @@
 import { AthletePhoto } from "./AthletePhoto";
+import Link from "next/link";
 import { RankBadge } from "./ui";
 import { WalkoutHeading } from "./WalkoutSong";
 import { paragraphs, type AthleteProfile } from "@/lib/profiles";
@@ -10,6 +11,8 @@ export interface RosterRow {
   profile: AthleteProfile | null;
   walkout: WalkoutSong | null;
   standing: { rank: number; totalPoints: number; eventsCompleted: number };
+  /** For the admin: a link to edit this athlete's profile. Athletes edit theirs from the account menu. */
+  profileHref?: string;
 }
 
 /**
@@ -17,20 +20,18 @@ export interface RosterRow {
  * stand. Every athlete is here whether or not anyone has written about them yet;
  * without a photo they get their initials, and without a bio a quiet note, so a
  * half-filled page looks deliberate. A walkout song, if set, plays from beside the name.
+ * Profiles and walkout songs are edited on /profile.
  */
 export function AthleteRoster({
   rows,
   eventCount,
-  songSearch,
 }: {
   rows: RosterRow[];
   eventCount: number;
-  /** Whether the site can search Spotify (it has credentials). */
-  songSearch: boolean;
 }) {
   return (
     <ul className="space-y-3">
-      {rows.map(({ id, name, profile, walkout, standing }) => {
+      {rows.map(({ id, name, profile, walkout, standing, profileHref }) => {
         const photo = profile?.photo?.trim();
         const tagline = profile?.tagline?.trim();
         const bio = paragraphs(profile?.bio);
@@ -40,7 +41,7 @@ export function AthleteRoster({
             <AthletePhoto name={name} src={photo} key={photo ?? "none"} />
 
             <div className="min-w-[12rem] flex-1">
-              <WalkoutHeading athleteId={id} name={name} walkout={walkout} searchable={songSearch}>
+              <WalkoutHeading name={name} walkout={walkout}>
                 <h2 className="font-display text-xl font-bold uppercase tracking-wide text-paper">{name}</h2>
               </WalkoutHeading>
               {tagline ? <p className="mt-0.5 text-sm text-accent">{tagline}</p> : null}
@@ -53,6 +54,14 @@ export function AthleteRoster({
               ) : profile ? null : (
                 <p className="mt-2 text-sm text-muted">No bio yet.</p>
               )}
+              {profileHref ? (
+                <Link
+                  href={profileHref}
+                  className="mt-2 inline-block text-sm text-muted underline-offset-4 hover:text-accent hover:underline"
+                >
+                  Edit profile
+                </Link>
+              ) : null}
             </div>
 
             <div className="w-full border-t border-[var(--edge)] pt-3 sm:w-auto sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0 sm:text-right">

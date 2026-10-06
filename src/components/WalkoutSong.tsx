@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { clearWalkoutSong, searchWalkoutSongs, setWalkoutSong } from "@/lib/actions";
 import { MAX_QUERY_LENGTH, MIN_QUERY_LENGTH, describeWalkout, embedHeight, embedUrl, type WalkoutSong } from "@/lib/walkout";
@@ -12,36 +13,100 @@ const LINK = "text-sm text-muted underline-offset-4 hover:text-accent hover:unde
 /** How long typing has to pause before the search goes out. */
 const SEARCH_DELAY_MS = 350;
 
-type Panel = "player" | "search" | null;
+/** Spotify's own compact player. Mounted only when wanted, so a page of athletes doesn't load a page of players. */
+function SpotifyEmbed({ walkout }: { walkout: WalkoutSong }) {
+  return (
+    <iframe
+      key={`${walkout.kind}:${walkout.spotifyId}`}
+      src={embedUrl(walkout)}
+      title={`${describeWalkout(walkout)}, on Spotify`}
+      width="100%"
+      height={embedHeight(walkout.kind)}
+      allow="clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+      loading="lazy"
+      className="block max-w-xl rounded-xl border-0"
+    />
+  );
+}
 
 /**
- * An athlete's name, with their walkout song beside it.
- *
- * A small play button appears when a song is set; it opens Spotify's own compact player
- * under the name (Spotify no longer hands out raw preview audio, so the player is theirs,
- * and mounts only when opened — a page of athletes does not load a page of players). The
- * Spotify logo beside it opens a search box for choosing or changing the song. Pasting a
- * podcast episode's link sets that episode instead; search itself only finds songs.
- *
- * `searchable` is false when the site has no Spotify credentials: the play button still
- * works, since the player loads in the visitor's browser, but there is nothing to search.
+ * An athlete's name, with a play button for their walkout song beside it when they
+ * have one. It opens Spotify's compact player under the name (Spotify no longer hands
+ * out raw preview audio, so the player is theirs). Choosing the song happens on the
+ * athlete's profile page, in WalkoutPicker.
  */
 export function WalkoutHeading({
+  name,
+  walkout,
+  children,
+}: {
+  name: string;
+  walkout: WalkoutSong | null;
+  /** The name heading itself, rendered by the server. */
+  children: ReactNode;
+}) {
+  const panelId = useId();
+  const [open, setOpen] = useState(false);
+  const playerOpen = open && walkout !== null;
+
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        {children}
+
+        {walkout ? (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={playerOpen}
+            aria-controls={`${panelId}-player`}
+            aria-label={`Play ${name}'s walkout song: ${describeWalkout(walkout)}`}
+            title={`${walkout.title} — ${walkout.artists}`}
+            className={[
+              ROUND_BUTTON,
+              playerOpen
+                ? "border-accent bg-accent text-ink"
+                : "border-[var(--edge-strong)] text-accent hover:border-accent",
+            ].join(" ")}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3 w-3 translate-x-px fill-current">
+              <path d="M4 2.5v11a.5.5 0 0 0 .77.42l8.5-5.5a.5.5 0 0 0 0-.84l-8.5-5.5A.5.5 0 0 0 4 2.5Z" />
+            </svg>
+          </button>
+        ) : null}
+      </div>
+
+      {playerOpen && walkout ? (
+        <div id={`${panelId}-player`} className="mt-3">
+          <SpotifyEmbed walkout={walkout} />
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * Choosing a walkout song, on the profile page: the current one with its player, a
+ * search box (pasting a Spotify song or episode link sets exactly that; search itself
+ * only finds songs), and a way to remove it. The server checks again that the
+ * signed-in account may change this athlete's song.
+ *
+ * `searchable` is false when the site has no Spotify credentials: there is nothing to
+ * search, but a song already chosen still plays and can still be removed.
+ */
+export function WalkoutPicker({
   athleteId,
   name,
   walkout,
   searchable,
-  children,
 }: {
   athleteId: string;
   name: string;
   walkout: WalkoutSong | null;
   searchable: boolean;
-  /** The name heading itself, rendered by the server. */
-  children: ReactNode;
 }) {
-  const panelId = useId();
-  const [panel, setPanel] = useState<Panel>(null);
+  const router = useRouter();
+  const queryId = useId();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<WalkoutSong[]>([]);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
@@ -53,20 +118,16 @@ export function WalkoutHeading({
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef(0);
 
-  const toggle = (which: Exclude<Panel, null>) => setPanel((current) => (current === which ? null : which));
-
   const cancelSearch = () => {
     if (timer.current) clearTimeout(timer.current);
     latest.current += 1;
     setSearching(false);
   };
 
-  const closeSearch = () => {
+  const resetSearch = () => {
     cancelSearch();
-    setPanel(null);
     setQuery("");
     setResults([]);
-    setMessage(null);
   };
 
   const onQueryChange = (text: string) => {
@@ -91,113 +152,47 @@ export function WalkoutHeading({
     }, SEARCH_DELAY_MS);
   };
 
-  const pick = (song: WalkoutSong) =>
+  const run = (action: () => ReturnType<typeof clearWalkoutSong>) =>
     startSaving(async () => {
-      const result = await setWalkoutSong({ athleteId, kind: song.kind, spotifyId: song.spotifyId });
-      if (result.ok) closeSearch();
-      else setMessage({ tone: "error", text: result.message });
+      const result = await action();
+      setMessage({ tone: result.ok ? "ok" : "error", text: result.message });
+      if (result.ok) {
+        resetSearch();
+        router.refresh();
+      }
     });
 
-  const remove = () =>
-    startSaving(async () => {
-      const result = await clearWalkoutSong({ athleteId });
-      if (result.ok) closeSearch();
-      else setMessage({ tone: "error", text: result.message });
-    });
-
-  const searchOpen = panel === "search" && searchable;
-  const playerOpen = panel === "player" && walkout !== null;
+  const pick = (song: WalkoutSong) => run(() => setWalkoutSong({ athleteId, kind: song.kind, spotifyId: song.spotifyId }));
+  const remove = () => run(() => clearWalkoutSong({ athleteId }));
 
   return (
-    <>
-      <div className="flex items-center gap-2">
-        {children}
+    <div className="max-w-xl space-y-3">
+      {walkout ? (
+        <SpotifyEmbed walkout={walkout} />
+      ) : (
+        <p className="text-sm text-muted">{name} doesn&apos;t have a walkout song yet.</p>
+      )}
 
-        {walkout ? (
-          <button
-            type="button"
-            onClick={() => toggle("player")}
-            aria-expanded={playerOpen}
-            aria-controls={`${panelId}-player`}
-            aria-label={`Play ${name}'s walkout song: ${describeWalkout(walkout)}`}
-            title={`${walkout.title} — ${walkout.artists}`}
-            className={[
-              ROUND_BUTTON,
-              playerOpen
-                ? "border-accent bg-accent text-ink"
-                : "border-[var(--edge-strong)] text-accent hover:border-accent",
-            ].join(" ")}
-          >
-            <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3 w-3 translate-x-px fill-current">
-              <path d="M4 2.5v11a.5.5 0 0 0 .77.42l8.5-5.5a.5.5 0 0 0 0-.84l-8.5-5.5A.5.5 0 0 0 4 2.5Z" />
-            </svg>
-          </button>
-        ) : null}
-
-        {searchable ? (
-          <button
-            type="button"
-            onClick={() => (searchOpen ? closeSearch() : (setPanel("search"), setMessage(null)))}
-            aria-expanded={searchOpen}
-            aria-controls={`${panelId}-search`}
-            aria-label={walkout ? `Change ${name}'s walkout song` : `Choose a walkout song for ${name}`}
-            title={walkout ? "Change walkout song" : "Choose a walkout song"}
-            className={[
-              ROUND_BUTTON,
-              searchOpen ? "border-[var(--edge-strong)]" : "border-transparent hover:border-[var(--edge-strong)]",
-            ].join(" ")}
-          >
-            {/* A plain <img>: it is a fixed logo file in public/, not a photo next/image should resize. */}
-            <img
-              src="/spotify-logo.svg"
-              alt=""
-              width={20}
-              height={20}
-              className={["h-5 w-5 transition-opacity", searchOpen ? "opacity-100" : "opacity-60 hover:opacity-100"].join(" ")}
-            />
-          </button>
-        ) : null}
-      </div>
-
-      {playerOpen && walkout ? (
-        <div id={`${panelId}-player`} className="mt-3">
-          <iframe
-            key={`${walkout.kind}:${walkout.spotifyId}`}
-            src={embedUrl(walkout)}
-            title={`${describeWalkout(walkout)}, on Spotify`}
-            width="100%"
-            height={embedHeight(walkout.kind)}
-            allow="clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            loading="lazy"
-            className="block max-w-xl rounded-xl border-0"
-          />
-        </div>
-      ) : null}
-
-      {searchOpen ? (
+      {searchable ? (
         <div
-          id={`${panelId}-search`}
-          className="mt-3 max-w-xl space-y-2"
+          className="space-y-2"
           onKeyDown={(e) => {
-            if (e.key === "Escape") closeSearch();
+            if (e.key === "Escape") resetSearch();
           }}
         >
-          <label className="sr-only" htmlFor={`${panelId}-query`}>
-            Search Spotify for {name}&apos;s walkout song
+          <label className="label" htmlFor={queryId}>
+            {walkout ? "Change song" : "Choose a song"}
           </label>
           <input
-            id={`${panelId}-query`}
+            id={queryId}
             type="search"
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             maxLength={MAX_QUERY_LENGTH}
-            autoFocus
             autoComplete="off"
             placeholder="Search Spotify, or paste a song or episode link"
             className="field"
           />
-
-          {message ? <Banner tone={message.tone}>{message.text}</Banner> : null}
 
           {results.length > 0 ? (
             <ul className="divide-y divide-[var(--edge)] overflow-hidden rounded-lg border border-[var(--edge)]">
@@ -228,17 +223,21 @@ export function WalkoutHeading({
           ) : searching ? (
             <p className="text-xs text-muted">Searching…</p>
           ) : null}
-
-          <div className="flex items-center gap-4">
-            {walkout ? (
-              <button type="button" onClick={remove} disabled={saving} className={LINK}>
-                Remove song
-              </button>
-            ) : null}
-            <span className="text-xs text-muted">{saving ? "Saving…" : ""}</span>
-          </div>
         </div>
-      ) : null}
-    </>
+      ) : (
+        <p className="text-xs text-muted">Song search isn&apos;t set up on this site yet.</p>
+      )}
+
+      {message ? <Banner tone={message.tone}>{message.text}</Banner> : null}
+
+      <div className="flex items-center gap-4">
+        {walkout ? (
+          <button type="button" onClick={remove} disabled={saving} className={LINK}>
+            Remove song
+          </button>
+        ) : null}
+        <span className="text-xs text-muted">{saving ? "Saving…" : ""}</span>
+      </div>
+    </div>
   );
 }

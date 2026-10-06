@@ -3,6 +3,7 @@ import {
   bigint,
   bigserial,
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -65,6 +66,87 @@ export const walkoutSongs = appSchema.table("walkout_songs", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * An athlete's profile once it lives in the database: what src/content/athletes.ts
+ * held before they claimed their account. Not audited, for the same reason as
+ * `walkoutSongs`: a bio is not a score.
+ */
+export const athleteProfiles = appSchema.table("athlete_profiles", {
+  athleteId: uuid("athlete_id")
+    .primaryKey()
+    .references(() => athletes.id, { onDelete: "cascade" }),
+  tagline: text("tagline").notNull().default(""),
+  bio: text("bio").notNull().default(""),
+  /** A file in public/, e.g. "/athletes/nick.jpg". Photos are not uploaded yet. */
+  photo: text("photo").notNull().default(""),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// --- accounts ------------------------------------------------------------------
+//
+// None of these tables are audited: a sign-in is not a score, and the history would
+// otherwise fill with sessions.
+
+/** athlete: edits their own profile. scorekeeper: enters scores. admin: everything. */
+export const accountRole = appSchema.enum("account_role", ["athlete", "scorekeeper", "admin"]);
+
+/**
+ * A login. Either an athlete's (linked to their roster row, named after it) or a staff
+ * login like "Admin" or "Scorekeeper" (made by `npm run auth:staff`), never both.
+ */
+export const accounts = appSchema.table(
+  "accounts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    role: accountRole("role").notNull().default("athlete"),
+    athleteId: uuid("athlete_id").references(() => athletes.id, { onDelete: "cascade" }),
+    staffName: text("staff_name"),
+    passwordHash: text("password_hash").notNull(),
+    /** Wrong passwords in a row. Reset by a good one. */
+    failedLogins: integer("failed_logins").notNull().default(0),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("accounts_athlete_key").on(t.athleteId),
+    uniqueIndex("accounts_staff_name_lower_key").on(sql`lower(${t.staffName})`),
+    check("accounts_one_owner", sql`(${t.athleteId} is null) <> (${t.staffName} is null)`),
+  ],
+);
+
+/**
+ * A request to claim an athlete, waiting for the admin. The phone number is only here
+ * so the admin can tell who is asking: approving creates the account and deletes this
+ * row, and rejecting just deletes it, so no phone number outlives its claim.
+ */
+export const claimRequests = appSchema.table(
+  "claim_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    athleteId: uuid("athlete_id")
+      .notNull()
+      .references(() => athletes.id, { onDelete: "cascade" }),
+    phone: text("phone").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("claim_requests_athlete_idx").on(t.athleteId)],
+);
+
+/** A signed-in browser. The id is a hash of the cookie's token, so a leaked table can't sign anyone in. */
+export const sessions = appSchema.table(
+  "sessions",
+  {
+    id: text("id").primaryKey(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("sessions_account_idx").on(t.accountId)],
+);
+
 export const events = appSchema.table(
   "events",
   {
@@ -118,7 +200,7 @@ export const resultColumns = () => ({
    *  leaderboard is one cheap SUM, recomputed whenever benchmarks change. */
   points: integer("points").notNull(),
   notes: text("notes").notNull().default(""),
-  /** Free-text "who is submitting this" — there are no accounts by design. */
+  /** Who entered it: the signed-in account's name. Older rows hold whatever was typed. */
   submittedBy: text("submitted_by").notNull().default(""),
   source: resultSource("source").notNull().default("ui"),
   batchId: uuid("batch_id").references(() => importBatches.id, { onDelete: "set null" }),
@@ -155,7 +237,7 @@ export const changeLog = auditSchema.table(
     operation: text("operation").notNull(),
     oldRow: jsonb("old_row"),
     newRow: jsonb("new_row"),
-    /** Whoever typed their name on the submit form, via `SET LOCAL app.actor`. */
+    /** The signed-in account that made the change, via `set_config('app.actor', ...)`. */
     changedBy: text("changed_by").notNull().default(""),
     changedAt: timestamp("changed_at", { withTimezone: true }).notNull().defaultNow(),
     batchId: uuid("batch_id"),
@@ -170,6 +252,10 @@ export const changeLog = auditSchema.table(
 
 export type Athlete = typeof athletes.$inferSelect;
 export type WalkoutSongRow = typeof walkoutSongs.$inferSelect;
+export type AthleteProfileRow = typeof athleteProfiles.$inferSelect;
+export type Account = typeof accounts.$inferSelect;
+export type AccountRole = (typeof accountRole.enumValues)[number];
+export type ClaimRequest = typeof claimRequests.$inferSelect;
 export type Event = typeof events.$inferSelect;
 export type Result = typeof results.$inferSelect;
 export type ChangeLogEntry = typeof changeLog.$inferSelect;

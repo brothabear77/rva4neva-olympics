@@ -4,7 +4,6 @@ import { useRef, useState, useTransition } from "react";
 import { commitImport, previewImport } from "@/lib/actions";
 import { CSV_TEMPLATE, type ImportPreview, type PreviewRow } from "@/lib/csv";
 import { Banner } from "./ui";
-import { useScorekeeperName } from "./useScorekeeperName";
 import { formatMeasurement } from "@/lib/scoring";
 
 /**
@@ -16,7 +15,6 @@ import { formatMeasurement } from "@/lib/scoring";
  */
 export function CsvUpload({ locked = false }: { locked?: boolean }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [name, setName] = useScorekeeperName();
   const [csvText, setCsvText] = useState("");
   const [filename, setFilename] = useState("");
   const [preview, setPreview] = useState<ImportPreview | null>(null);
@@ -46,7 +44,7 @@ export function CsvUpload({ locked = false }: { locked?: boolean }) {
 
   const commit = () => {
     startTransition(async () => {
-      const result = await commitImport(csvText, filename, name);
+      const result = await commitImport(csvText, filename);
       setMessage({ tone: result.ok ? "ok" : "error", text: result.message });
       if (result.ok) reset();
     });
@@ -56,20 +54,6 @@ export function CsvUpload({ locked = false }: { locked?: boolean }) {
 
   return (
     <div className="space-y-5">
-      <div>
-        <label className="label" htmlFor="csvBy">
-          Your name
-        </label>
-        <input
-          id="csvBy"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={80}
-          placeholder="Recorded against every row in the change history"
-          className="field"
-        />
-      </div>
-
       <div
         onDragOver={(e) => {
           e.preventDefault();

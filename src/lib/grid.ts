@@ -62,7 +62,6 @@ export interface GridChange {
 }
 
 export interface GridSubmission {
-  submittedBy: string;
   changes: GridChange[];
 }
 
@@ -123,7 +122,6 @@ export interface GridDelete {
 }
 
 export interface GridDeletion {
-  submittedBy: string;
   cells: GridDelete[];
 }
 

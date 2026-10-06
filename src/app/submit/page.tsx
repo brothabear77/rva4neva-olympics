@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { RosterEditor } from "@/components/RosterEditor";
 import { SubmitPanels } from "@/components/SubmitPanels";
 import { LockedBanner } from "@/components/LockedBanner";
 import { PageHeader } from "@/components/ui";
+import { canScore, getSession, isAdmin } from "@/lib/auth";
 import { submissionsLocked } from "@/lib/flags";
 import { getAthletes, getEventsForForm, getResultValues, getRoster } from "@/lib/queries";
 
@@ -11,6 +13,10 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Submit Results" };
 
 export default async function SubmitPage() {
+  const session = await getSession();
+  if (!session) redirect("/login?next=/submit");
+  if (!canScore(session)) redirect("/");
+
   const [events, athletes, results, roster, locked] = await Promise.all([
     getEventsForForm(),
     getAthletes(),
@@ -22,7 +28,7 @@ export default async function SubmitPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Anyone can score"
+        eyebrow={`Scoring as ${session.displayName}`}
         title="Submit Results"
         actions={
           <Link href="/changelog" className="btn btn-ghost">
@@ -35,7 +41,7 @@ export default async function SubmitPage() {
 
       <SubmitPanels events={events} athletes={athletes} results={results} locked={locked} />
 
-      <RosterEditor roster={roster} locked={locked} />
+      {isAdmin(session) ? <RosterEditor roster={roster} locked={locked} /> : null}
     </>
   );
 }

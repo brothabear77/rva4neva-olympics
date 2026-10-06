@@ -58,7 +58,7 @@ export type Db = NodePgDatabase<typeof schema>;
 export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 export interface ActorContext {
-  /** Name typed on the submit form. Recorded on every changelog row. */
+  /** The signed-in account's name. Recorded on every changelog row. */
   actor: string;
   /** Set when the change is part of a CSV import. */
   batchId?: string | null;
@@ -73,7 +73,7 @@ export interface ActorContext {
  * how a changelog row learns a name without the app ever writing to the audit
  * schema itself. `set_config(..., true)` scopes them to this transaction, and
  * it is used instead of `SET LOCAL` because only `set_config` accepts a bound
- * parameter — the actor is user-supplied text.
+ * parameter — the actor is an athlete's name, which is user-supplied text.
  */
 export async function withActor<T>(ctx: ActorContext, fn: (tx: Tx) => Promise<T>): Promise<T> {
   return db.transaction(async (tx) => {
