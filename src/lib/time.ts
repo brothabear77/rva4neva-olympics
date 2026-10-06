@@ -96,3 +96,9 @@ export function formatEventDate(date: string): string {
     day: "numeric",
   });
 }
+
+/** Today's calendar date in Eastern time, as `YYYY-MM-DD`. */
+export function todayInEventZone(now: Date | number = Date.now()): string {
+  // The en-CA locale writes dates year-first, which is the shape wanted here.
+  return new Date(now).toLocaleDateString("en-CA", { timeZone: EVENT_TIME_ZONE });
+}

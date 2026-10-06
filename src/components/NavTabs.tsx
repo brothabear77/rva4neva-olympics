@@ -4,16 +4,28 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { NAV, SITE, isNavMenu, type NavMenu } from "@/lib/site";
+import { NAV, SITE, isNavMenu, type NavItem, type NavMenu } from "@/lib/site";
 
 const TAB =
   "relative whitespace-nowrap px-3 py-2.5 font-display text-sm font-medium uppercase tracking-[0.1em] transition-colors";
 
 /**
  * `account` is the server-rendered sign-in link or account menu, shown at the right.
- * `canScore` shows the scorekeeper-only tabs; the pages check again on their own.
+ * `canScore` shows the scorekeeper-only tabs, `isMember` the Athletes menu, and
+ * `enabledFlags` the items behind a feature flag; the pages check again on their own.
  */
-export function NavTabs({ account, canScore = false }: { account?: ReactNode; canScore?: boolean }) {
+export function NavTabs({
+  account,
+  canScore = false,
+  isMember = false,
+  enabledFlags = [],
+}: {
+  account?: ReactNode;
+  canScore?: boolean;
+  isMember?: boolean;
+  /** The feature flags that are on. A nav item behind a flag that isn't listed stays hidden. */
+  enabledFlags?: readonly string[];
+}) {
   const pathname = usePathname();
   const headerRef = useRef<HTMLElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -100,7 +112,13 @@ export function NavTabs({ account, canScore = false }: { account?: ReactNode; ca
     }
   };
 
-  const openMenuData = NAV.find((item) => isNavMenu(item) && item.label === open);
+  const flagged = (link: { featureFlag?: string }) => !link.featureFlag || enabledFlags.includes(link.featureFlag);
+  const visible = NAV.flatMap((item): NavItem[] => {
+    if (!isNavMenu(item)) return flagged(item) && (canScore || !item.scorekeepersOnly) ? [item] : [];
+    const items = item.items.filter(flagged);
+    return items.length > 0 && (isMember || !item.membersOnly) ? [{ ...item, items }] : [];
+  });
+  const openMenuData = visible.find((item) => isNavMenu(item) && item.label === open);
 
   return (
     <header ref={headerRef} className="sticky top-0 z-50 border-b border-[var(--edge)] bg-ink/95 backdrop-blur">
@@ -124,7 +142,7 @@ export function NavTabs({ account, canScore = false }: { account?: ReactNode; ca
           onScroll={() => open && setOpen(null)}
           className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {NAV.filter((item) => canScore || isNavMenu(item) || !item.scorekeepersOnly).map((item) => {
+          {visible.map((item) => {
             if (isNavMenu(item)) {
               const active = item.items.some((child) => isActive(child.href));
               const expanded = open === item.label;

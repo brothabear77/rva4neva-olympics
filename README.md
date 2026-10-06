@@ -113,20 +113,15 @@ ten athletes and grows a row per athlete on the roster.
 
 ### The roster
 
-Who is in the grid is managed in the **Roster** section at the bottom of the Submit
-page. It is the one place to add, rename or remove an athlete; the grid only shows
-this list.
+The grid shows everyone on the roster, and nothing on the Submit page adds, renames or
+removes an athlete. New athletes will join through a sign-up process; until that
+exists, the starting roster comes from the seed (`npm run db:seed`).
 
-- **Add** an athlete by name. Names are unique ignoring case, so "nick" is refused
-  when "Nick" exists, and the message says whose name it is.
-- **Rename** with the Rename link. Changing only the capitalisation is fine.
-- **Delete** asks first and says how many scores go with the athlete ("Delete Casey
-  and their 3 scores?"), because a score belongs to a person.
-- Every change is recorded in Change History. **Undo** there renames someone back, or
-  brings a deleted athlete back **together with every score deleted with them**. A
-  removed score still reads "Casey — Keg Toss" in the history, not "Unknown athlete".
-- Bios and photos on the Athletes page are matched by name, so a rename may mean
-  updating that entry too.
+- Names are unique ignoring case, so "nick" is refused when "Nick" exists.
+- Changes already in Change History can still be undone there: **Undo** renames
+  someone back, or brings a deleted athlete back **together with every score deleted
+  with them**.
+- Bios and photos on the Athletes page are matched by name.
 - CSV import still adds anyone it does not recognise, and says so in its preview.
 
 ## Info: athletes and the event guide

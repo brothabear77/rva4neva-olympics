@@ -45,7 +45,7 @@ export function parseCell(text: string): CellValue {
   return { kind: "number", value };
 }
 
-/** A row of the grid: one athlete on the roster. (Athletes are added from the roster editor.) */
+/** A row of the grid: one athlete on the roster. */
 export interface GridRow {
   athleteId: string;
   name: string;

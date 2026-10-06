@@ -1,5 +1,8 @@
 import "server-only";
 import { boolFlag } from "./launchdarkly";
+import { SHOW_VLOG_FLAG } from "./site";
+
+export { SHOW_VLOG_FLAG };
 
 /**
  * The site's feature flags. Each is a boolean flag in LaunchDarkly; the key here
@@ -31,17 +34,24 @@ export function showChampion(): Promise<boolean> {
 }
 
 /**
+ * Gates the Vlog page and its nav item while uploads are unfinished. Falls back to off,
+ * unlike the flags above: if LaunchDarkly is unreachable, an unfinished page should stay
+ * hidden rather than appear.
+ */
+export function showVlogPage(): Promise<boolean> {
+  return boolFlag(SHOW_VLOG_FLAG, false);
+}
+
+/**
  * Whether the scores are currently frozen.
  *
  * This is what stops a change, not the page: the grid, the CSV import and the
- * remove/undo/delete buttons are disabled while it is true, but anyone can post to a
+ * remove/undo buttons are disabled while it is true, but anyone can post to a
  * server action directly, so each action asks this itself. Covered: submitGrid and
- * commitImport (adding scores), deleteScores and deleteAthlete (removing
- * them; deleting an athlete removes their scores too) and restoreChange (undoing a
- * change from the history).
+ * commitImport (adding scores), deleteScores (removing them) and restoreChange
+ * (undoing a change from the history).
  *
- * Deliberately not covered: adding or renaming an athlete, which touch no scores, setting
- * a walkout song, and retuning an event's scale.
+ * Deliberately not covered: setting a walkout song, and retuning an event's scale.
  */
 export function submissionsLocked(): Promise<boolean> {
   return boolFlag(SUBMISSION_LOCK_FLAG, false);

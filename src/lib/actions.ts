@@ -10,7 +10,6 @@ import { results } from "./resultsTable";
 import { isScorable, scoreResult } from "./scoring";
 import { buildImportPreview, parseResultsCsv, type ImportPreview } from "./csv";
 import { MAX_RAW_VALUE, type GridDeletion, type GridSubmission } from "./grid";
-import { checkAthleteName } from "./roster";
 import { SUBMISSIONS_LOCKED_MESSAGE, submissionsLocked } from "./flags";
 import { getWalkoutItem, searchTracks } from "./spotify";
 import {
@@ -244,106 +243,6 @@ export async function deleteScores(input: GridDeletion): Promise<ActionResult<{ 
         ? "Those scores were already gone."
         : `Deleted ${outcome.deleted} score${outcome.deleted === 1 ? "" : "s"}. They can be brought back from Change History.`,
       outcome,
-    );
-  } catch (error) {
-    return fail(describeError(error));
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Managing the roster
-// ---------------------------------------------------------------------------
-
-/** The roster as the name rules need to see it, read inside the transaction. */
-const currentRoster = (tx: Tx) => tx.select({ id: athletes.id, name: athletes.name }).from(athletes);
-
-export async function addAthlete(input: { name: string }): Promise<ActionResult> {
-  const session = await authorize("admin");
-  if (!session) return fail(await refusal());
-  const parsed = z.object({ name: z.string() }).safeParse(input);
-  if (!parsed.success) return fail("Enter a name.");
-
-  try {
-    const added = await withActor({ actor: session.displayName }, async (tx) => {
-      const check = checkAthleteName(parsed.data.name, await currentRoster(tx));
-      if (!check.ok) throw new Error(check.error);
-      const [row] = await tx.insert(athletes).values({ name: check.name }).returning();
-      return row;
-    });
-
-    revalidateScoreboard();
-    return ok(`Added ${added.name} to the roster.`);
-  } catch (error) {
-    if (isUniqueViolation(error)) return fail("Someone with that name is already on the roster.");
-    return fail(describeError(error));
-  }
-}
-
-export async function renameAthlete(input: { id: string; name: string }): Promise<ActionResult> {
-  const session = await authorize("admin");
-  if (!session) return fail(await refusal());
-  const parsed = z.object({ id: z.string().uuid(), name: z.string() }).safeParse(input);
-  if (!parsed.success) return fail("Check the name and try again.");
-
-  try {
-    const message = await withActor({ actor: session.displayName }, async (tx) => {
-      const [current] = await tx.select().from(athletes).where(eq(athletes.id, parsed.data.id)).limit(1);
-      if (!current) throw new Error("That athlete is no longer on the roster. Reload the page.");
-
-      // The athlete's own id is excluded so they do not clash with themselves,
-      // which is also what lets a rename change only the capitalisation.
-      const check = checkAthleteName(parsed.data.name, await currentRoster(tx), current.id);
-      if (!check.ok) throw new Error(check.error);
-      if (check.name === current.name) throw new Error("That is already their name.");
-
-      await tx.update(athletes).set({ name: check.name }).where(eq(athletes.id, current.id));
-      return `Renamed ${current.name} to ${check.name}.`;
-    });
-
-    revalidateScoreboard();
-    return ok(message);
-  } catch (error) {
-    if (isUniqueViolation(error)) return fail("Someone with that name is already on the roster.");
-    return fail(describeError(error));
-  }
-}
-
-/**
- * Remove an athlete. Their scores go with them, since a score belongs to a
- * person (the foreign key cascades).
- *
- * Nothing is lost for good. The database records the athlete's deletion and each
- * score's deletion in one transaction, and "Undo" on the athlete's entry in Change
- * History brings back the athlete and every score removed with them.
- */
-export async function deleteAthlete(input: { id: string }): Promise<ActionResult<{ scores: number }>> {
-  const session = await authorize("admin");
-  if (!session) return fail(await refusal());
-  // Locked along with score deletion: this deletes the athlete's scores too.
-  if (await submissionsLocked()) return fail(SUBMISSIONS_LOCKED_MESSAGE);
-
-  const parsed = z.object({ id: z.string().uuid() }).safeParse(input);
-  if (!parsed.success) return fail("Pick an athlete to delete.");
-
-  try {
-    const outcome = await withActor({ actor: session.displayName }, async (tx) => {
-      const [current] = await tx.select().from(athletes).where(eq(athletes.id, parsed.data.id)).limit(1);
-      if (!current) throw new Error("That athlete was already removed.");
-
-      const [{ scores }] = await tx
-        .select({ scores: sql<number>`count(*)::int` })
-        .from(results)
-        .where(eq(results.athleteId, current.id));
-
-      await tx.delete(athletes).where(eq(athletes.id, current.id));
-      return { name: current.name, scores };
-    });
-
-    revalidateScoreboard();
-    return ok(
-      `Deleted ${outcome.name}${outcome.scores ? ` and their ${outcome.scores} score${outcome.scores === 1 ? "" : "s"}` : ""}. ` +
-        "This can be undone from Change History.",
-      { scores: outcome.scores },
     );
   } catch (error) {
     return fail(describeError(error));

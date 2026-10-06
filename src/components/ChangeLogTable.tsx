@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { restoreChange } from "@/lib/actions";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { Banner } from "./ui";
 import { formatEventDateTime } from "@/lib/time";
 import type { ActionResult } from "@/lib/actions";
@@ -40,6 +41,14 @@ const OPERATION_LABEL: Record<string, string> = {
   RESTORE: "Restored",
 };
 
+/** What undoing this entry does, in words: "Undo — back to 26.5", "Restore 28", … */
+function undoText(entry: ChangeLogRow): string {
+  if (entry.operation === "INSERT" && entry.tableName === "results") return "Undo — remove this score";
+  if (entry.operation === "INSERT" && entry.tableName === "athletes") return "Undo — remove this athlete";
+  const verb = entry.operation === "INSERT" || entry.operation === "DELETE" ? "Restore " : "Undo — back to ";
+  return `${verb}${entry.restoreTo}`;
+}
+
 export function ChangeLogTable({
   entries,
   locked = false,
@@ -54,6 +63,17 @@ export function ChangeLogTable({
     async (_prev: ActionResult | null, formData: FormData) => restoreChange(formData),
     null,
   );
+  // The entry whose undo is waiting on the dialog's answer.
+  const [confirming, setConfirming] = useState<ChangeLogRow | null>(null);
+  const [, startTransition] = useTransition();
+
+  const confirmed = () => {
+    if (!confirming) return;
+    const formData = new FormData();
+    formData.set("entryId", String(confirming.id));
+    setConfirming(null);
+    startTransition(() => formAction(formData));
+  };
 
   return (
     <div className="space-y-4">
@@ -82,25 +102,16 @@ export function ChangeLogTable({
               <div className="flex shrink-0 items-center gap-3">
                 <span className="tnum text-xs text-muted">#{entry.id}</span>
                 {canRestore && entry.restoreTo ? (
-                  <form action={formAction}>
-                    <input type="hidden" name="entryId" value={entry.id} />
-                    {/* The value is named on the button: on an entry that reads
-                        "26.5 → 28", "Restore" alone does not say which you get. */}
-                    <button
-                      type="submit"
-                      disabled={pending || locked}
-                      className="text-xs text-muted underline-offset-4 hover:text-accent hover:underline disabled:opacity-50"
-                    >
-                      {entry.operation === "INSERT" && (entry.tableName === "results" || entry.tableName === "athletes") ? (
-                        entry.tableName === "results" ? "Undo — remove this score" : "Undo — remove this athlete"
-                      ) : (
-                        <>
-                          {entry.operation === "INSERT" || entry.operation === "DELETE" ? "Restore " : "Undo — back to "}
-                          <span className="tnum">{entry.restoreTo}</span>
-                        </>
-                      )}
-                    </button>
-                  </form>
+                  // The value is named on the button: on an entry that reads
+                  // "26.5 → 28", "Restore" alone does not say which you get.
+                  <button
+                    type="button"
+                    onClick={() => setConfirming(entry)}
+                    disabled={pending || locked}
+                    className="text-xs text-muted underline-offset-4 hover:text-accent hover:underline disabled:opacity-50"
+                  >
+                    {undoText(entry)}
+                  </button>
                 ) : null}
               </div>
             </div>
@@ -109,6 +120,25 @@ export function ChangeLogTable({
           </li>
         ))}
       </ol>
+
+      <ConfirmDialog
+        open={confirming !== null}
+        title="Make this change?"
+        confirmLabel="Yes, do it"
+        busyLabel="Working…"
+        busy={pending}
+        onConfirm={confirmed}
+        onCancel={() => setConfirming(null)}
+      >
+        {confirming ? (
+          <>
+            <p className="text-paper">
+              {confirming.label}: <span className="tnum">{undoText(confirming)}</span>
+            </p>
+            <p className="mt-2">It&apos;s recorded as a new entry in the history, and nothing is erased.</p>
+          </>
+        ) : null}
+      </ConfirmDialog>
     </div>
   );
 }

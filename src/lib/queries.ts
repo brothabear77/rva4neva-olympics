@@ -1,7 +1,18 @@
 import "server-only";
 import { asc, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { db } from "./db";
-import { accounts, athleteProfiles, athletes, changeLog, claimRequests, events, walkoutSongs } from "./schema";
+import {
+  accounts,
+  athleteProfiles,
+  athletes,
+  changeLog,
+  claimRequests,
+  events,
+  practiceAttempts,
+  proposalVotes,
+  proposals,
+  walkoutSongs,
+} from "./schema";
 import { results } from "./resultsTable";
 import { isMigrationPending, type WalkoutSong } from "./walkout";
 import { formatMeasurement } from "./scoring";
@@ -188,16 +199,6 @@ export async function getResultValues() {
   return db
     .select({ athleteId: results.athleteId, eventId: results.eventId, rawValue: results.rawValue })
     .from(results);
-}
-
-/** The roster with how many scores each athlete has, for the roster editor. */
-export async function getRoster() {
-  return db
-    .select({ id: athletes.id, name: athletes.name, scores: sql<number>`count(${results.id})::int` })
-    .from(athletes)
-    .leftJoin(results, eq(results.athleteId, athletes.id))
-    .groupBy(athletes.id)
-    .orderBy(asc(athletes.name));
 }
 
 export async function getAthletes() {
@@ -499,4 +500,88 @@ export async function getAccounts(): Promise<AccountRow[]> {
       createdAt: r.createdAt,
     }))
     .sort((a, b) => Number(b.isStaff) - Number(a.isStaff) || a.name.localeCompare(b.name));
+}
+
+// ---------------------------------------------------------------------------
+// The athletes' pages
+// ---------------------------------------------------------------------------
+
+export interface PracticeAttemptRow {
+  id: string;
+  eventId: string;
+  rawValue: number;
+  attemptedOn: string;
+  notes: string;
+}
+
+/** One athlete's logged attempts, newest first. */
+export async function getPracticeAttempts(athleteId: string): Promise<PracticeAttemptRow[]> {
+  return orWhileMigrating(
+    db
+      .select({
+        id: practiceAttempts.id,
+        eventId: practiceAttempts.eventId,
+        rawValue: practiceAttempts.rawValue,
+        attemptedOn: practiceAttempts.attemptedOn,
+        notes: practiceAttempts.notes,
+      })
+      .from(practiceAttempts)
+      .where(eq(practiceAttempts.athleteId, athleteId))
+      .orderBy(desc(practiceAttempts.attemptedOn), desc(practiceAttempts.createdAt)),
+    [],
+    "app.practice_attempts",
+  );
+}
+
+export interface ProposalRow {
+  id: string;
+  title: string;
+  body: string;
+  proposerId: string;
+  proposerName: string;
+  createdAt: Date;
+  closesAt: Date;
+  withdrawnAt: Date | null;
+  yes: number;
+  no: number;
+  /** Athlete accounts that existed when voting closed (or exist now, while it is open). */
+  eligible: number;
+  /** The viewer's own vote: true for Yes, false for No, null if they haven't voted. */
+  myVote: boolean | null;
+}
+
+/** Every proposal, newest first, with tallies and how `viewerAthleteId` voted. */
+export async function getProposals(viewerAthleteId: string | null): Promise<ProposalRow[]> {
+  return orWhileMigrating(
+    (async () => {
+      const rows = await db
+        .select({
+          id: proposals.id,
+          title: proposals.title,
+          body: proposals.body,
+          proposerId: proposals.athleteId,
+          proposerName: athletes.name,
+          createdAt: proposals.createdAt,
+          closesAt: proposals.closesAt,
+          withdrawnAt: proposals.withdrawnAt,
+          yes: sql<number>`(select count(*)::int from ${proposalVotes} v where v.proposal_id = ${proposals.id} and v.in_favor)`,
+          no: sql<number>`(select count(*)::int from ${proposalVotes} v where v.proposal_id = ${proposals.id} and not v.in_favor)`,
+          eligible: sql<number>`(select count(*)::int from ${accounts} a where a.athlete_id is not null and a.created_at <= ${proposals.closesAt})`,
+        })
+        .from(proposals)
+        .innerJoin(athletes, eq(athletes.id, proposals.athleteId))
+        .orderBy(desc(proposals.createdAt));
+
+      const mine = viewerAthleteId
+        ? await db
+            .select({ proposalId: proposalVotes.proposalId, inFavor: proposalVotes.inFavor })
+            .from(proposalVotes)
+            .where(eq(proposalVotes.athleteId, viewerAthleteId))
+        : [];
+      const myVotes = new Map(mine.map((v) => [v.proposalId, v.inFavor]));
+      return rows.map((r) => ({ ...r, myVote: myVotes.get(r.id) ?? null }));
+    })(),
+    [],
+    "app.proposals",
+  );
 }

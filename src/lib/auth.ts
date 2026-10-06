@@ -84,6 +84,9 @@ export async function refusal(): Promise<string> {
 
 export const canScore = (session: Session | null): session is Session =>
   session?.role === "scorekeeper" || session?.role === "admin";
+/** An athlete or the admin: who the Athletes pages are for. Scorekeepers are not members. */
+export const isMember = (session: Session | null): session is Session =>
+  session?.role === "athlete" || session?.role === "admin";
 export const isAdmin = (session: Session | null): session is Session => session?.role === "admin";
 
 /** An athlete edits their own profile and walkout song; the admin edits anyone's. */

@@ -175,6 +175,22 @@ Use `sslmode=verify-full` in any connection string for Aurora. Older advice says
 is the minimum, but `pg` 8 treats `require` as full verification too, so the two behave the same
 and the explicit one says what happens.
 
+## Staff logins
+
+The site's Admin and Scorekeeper logins aren't tied to an athlete, so they're made by hand
+rather than claimed. After the first deploy that includes the accounts tables:
+
+```bash
+npm run auth:staff -- Admin --prod
+npm run auth:staff -- Scorekeeper --prod
+```
+
+`--prod` connects the way `aws:db` does (owner credentials from Secrets Manager, TLS checked
+against `certs/`), so it only works from the admin IP address. It prints the database it's about
+to write to and asks you to type the login's name before changing anything. Running it again for
+an existing login sets a new password and signs that login out everywhere. Without `--prod` it
+writes to your local database instead.
+
 ## A paused database
 
 With a minimum of 0 ACU, Aurora pauses after five idle minutes and costs only its storage. The
