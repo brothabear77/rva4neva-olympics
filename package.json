@@ -26,7 +26,7 @@
     "deploy": "tsx scripts/deploy.ts",
     "aws:db": "tsx scripts/aws-db.ts",
     "infra:synth": "npm --prefix infra/cdk run synth",
-    "prepare": "git config core.hooksPath .githooks"
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
   },
   "dependencies": {
     "@launchdarkly/node-server-sdk": "^9.13.7",
