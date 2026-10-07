@@ -136,11 +136,13 @@ export function NavTabs({
         </Link>
 
         {/* Tabs scroll horizontally, within whatever room is left beside the logo,
-            rather than wrap onto a second row. */}
+            rather than wrap onto a second row. Only sideways: overflow-x alone would
+            make the strip scroll vertically too, by the underline hanging 1px below
+            the tabs, so that's clipped off and pb-px makes room for the underline. */}
         <nav
           aria-label="Primary"
           onScroll={() => open && setOpen(null)}
-          className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex min-w-0 flex-1 gap-1 overflow-x-auto overflow-y-hidden pb-px [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {visible.map((item) => {
             if (isNavMenu(item)) {
