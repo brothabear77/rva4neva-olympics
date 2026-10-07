@@ -41,13 +41,16 @@ export default async function VotePage() {
     const isOpen = status === "open";
     const mine = p.proposerId === session.athleteId;
     return (
-      <article key={p.id} className="card p-4 sm:p-6">
+      // A proposal that passed gets the site's gold accent: its border and its "Passed" label.
+      <article key={p.id} className={["card p-4 sm:p-6", status === "passed" ? "border-accent/70" : ""].join(" ")}>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <h3 className="font-display text-xl font-bold uppercase tracking-wide text-paper">{p.title}</h3>
           {isOpen ? (
             <span className="eyebrow">Voting closes in <VoteCountdown closesAt={p.closesAt.toISOString()} /></span>
           ) : (
-            <span className="eyebrow">{OUTCOME[status as Exclude<ProposalStatus, "open">]}</span>
+            <span className={["eyebrow", status === "passed" ? "text-accent" : ""].join(" ")}>
+              {OUTCOME[status as Exclude<ProposalStatus, "open">]}
+            </span>
           )}
         </div>
         <p className="mt-1 text-xs text-muted">
@@ -77,7 +80,7 @@ export default async function VotePage() {
         eyebrow="Athletes"
         title="Vote"
         actions={<LiveRefresh />}
-        description={`Propose a change to the group. Everyone has ${VOTING_DAYS} days to vote; it passes if at least half of all athletes vote and more say Yes than No.`}
+        description={`Propose a change to the group. Everyone has ${VOTING_DAYS} days to vote; it passes if at least half of all athletes vote and more say Yes than No. Once all athletes vote, the countdown drops to 1 minute.`}
       />
 
       <section aria-labelledby="open-heading" className="mb-10">
