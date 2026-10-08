@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 import { requestClaim, signIn } from "@/lib/authActions";
 import { MIN_PASSWORD_LENGTH, checkPassword, normalizePhone } from "@/lib/credentials";
 import type { LoginChoice } from "@/lib/queries";
+import { PasswordInput } from "./PasswordInput";
 import { Banner } from "./ui";
 
 type Message = { tone: "ok" | "error"; text: string } | null;
@@ -56,13 +57,11 @@ export function LoginForm({ choices, next }: { choices: LoginChoice[]; next: str
         <label className="label" htmlFor="loginPassword">
           Password
         </label>
-        <input
+        <PasswordInput
           id="loginPassword"
-          type="password"
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="field"
         />
       </div>
       {message ? <Banner tone={message.tone}>{message.text}</Banner> : null}

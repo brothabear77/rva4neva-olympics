@@ -50,3 +50,6 @@ next-env.d.ts
 # the infrastructure package has its own dependencies and build output
 infra/cdk/node_modules
 infra/cdk/cdk.out
+
+# local-only sample clips for laying out the Vlog page (never commit videos)
+/public/vlog-preview/
