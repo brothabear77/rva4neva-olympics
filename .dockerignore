@@ -10,6 +10,10 @@ Dockerfile
 .dockerignore
 docker-compose.yml
 
+# Local-only sample clips for laying out the Vlog page (gitignored too). Without this a
+# deploy from a laptop would bake them into the image and serve them to the public.
+public/vlog-preview
+
 # Infrastructure code has its own dependencies (aws-cdk-lib) and is not part of the
 # app. It must stay out of the context, or `next build` would try to type-check it.
 infra

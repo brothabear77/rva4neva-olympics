@@ -453,3 +453,28 @@ aws secretsmanager delete-secret --secret-id rva4neva/app-database-url --force-d
 
 - **Branch protection requiring the `test` job to pass before a merge.** That's a GitHub
   repository setting, not a file here.
+
+## Vlog media (not provisioned yet)
+
+Videos on the Vlog page will be stored in S3. **No bucket exists yet, on purpose**: it is
+created once athletes start claiming their profiles. Until then the app is ready but inert:
+`src/lib/vlogMedia.ts` reads `VLOG_MEDIA_BUCKET`, and while that is unset (or the
+placeholder `not-provisioned-yet`) `vlogMediaConfigured()` is false and the upload form
+stays disabled.
+
+Objects will be keyed `vlog/<athlete id>/<uuid>.<ext>` (mp4, mov or webm, at most 500 MB).
+
+When it is time:
+
+1. In `SiteStack`, add a private `s3.Bucket` (block all public access, SSE-S3, `enforceSSL`,
+   a CORS rule allowing `PUT` and `GET` from the site's origin, and `RemovalPolicy.RETAIN`
+   so tearing down the stack never deletes anyone's videos).
+2. `bucket.grantReadWrite(instanceRole)`, and add `{ name: "VLOG_MEDIA_BUCKET", value: bucket.bucketName }`
+   to `runtimeEnvironmentVariables`. The bucket name is not a secret.
+3. Add `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner` and write the upload action:
+   the browser uploads straight to S3 with a presigned `PUT`, so videos never pass through
+   App Runner's 1 GB instance. Playback uses presigned `GET`s (or CloudFront, if traffic needs it).
+4. S3 is reached from the private subnets through the NAT instance; add a gateway VPC
+   endpoint for S3 (free) so large uploads don't flow through it.
+5. A `vlog_videos` table for title, athlete, optional event and object key.
+
