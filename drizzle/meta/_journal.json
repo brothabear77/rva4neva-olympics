@@ -50,6 +50,13 @@
       "when": 1791314516367,
       "tag": "0006_athlete_hub",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791505545839,
+      "tag": "0007_vlog_videos",
+      "breakpoints": true
     }
   ]
 }

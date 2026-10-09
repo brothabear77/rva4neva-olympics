@@ -1,4 +1,6 @@
 import { formatEventDateTime } from "@/lib/time";
+import { HeartButton } from "./HeartButton";
+import { VlogDeleteButton } from "./VlogDeleteButton";
 
 export type VlogItem = {
   id: string;
@@ -10,6 +12,11 @@ export type VlogItem = {
   poster?: string;
   /** ISO timestamp the clip was uploaded. */
   postedAt: string;
+  /** How many athletes have hearted it, and whether the viewer has. */
+  hearts: number;
+  hearted: boolean;
+  /** The viewer uploaded it, or is the admin. */
+  canDelete: boolean;
 };
 
 /**
@@ -20,7 +27,7 @@ export type VlogItem = {
  * same grid instead of making rows of uneven height. `preload="metadata"` fetches just
  * enough for a poster frame, so a page of clips does not download them all.
  */
-export function VlogGrid({ items }: { items: VlogItem[] }) {
+export function VlogGrid({ items, canHeart }: { items: VlogItem[]; canHeart: boolean }) {
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((item) => (
@@ -45,6 +52,10 @@ export function VlogGrid({ items }: { items: VlogItem[] }) {
             <p className="text-xs text-muted">
               Uploaded <time dateTime={item.postedAt}>{formatEventDateTime(item.postedAt)}</time>
             </p>
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <HeartButton videoId={item.id} count={item.hearts} hearted={item.hearted} canHeart={canHeart} />
+              {item.canDelete ? <VlogDeleteButton videoId={item.id} title={item.title} /> : null}
+            </div>
           </div>
         </li>
       ))}

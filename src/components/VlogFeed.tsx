@@ -15,7 +15,7 @@ const sorted = (values: Iterable<string>) => [...new Set(values)].sort((a, b) =>
  * forgives typos (src/lib/fuzzy.ts). The dropdown choices are built from the clips
  * themselves, so nobody is offered a filter that can only return nothing.
  */
-export function VlogFeed({ items }: { items: VlogItem[] }) {
+export function VlogFeed({ items, canHeart }: { items: VlogItem[]; canHeart: boolean }) {
   const [search, setSearch] = useState("");
   const [athlete, setAthlete] = useState("");
   const [event, setEvent] = useState("");
@@ -98,7 +98,7 @@ export function VlogFeed({ items }: { items: VlogItem[] }) {
       )}
 
       {shown.length > 0 ? (
-        <VlogGrid items={shown} />
+        <VlogGrid items={shown} canHeart={canHeart} />
       ) : (
         <p className="card px-6 py-10 text-center text-sm text-muted">No videos match those filters.</p>
       )}

@@ -207,6 +207,52 @@ export const proposalVotes = appSchema.table(
   (t) => [primaryKey({ columns: [t.proposalId, t.athleteId] })],
 );
 
+/**
+ * A video on the Vlog page. The file itself is in S3 under `objectKey`; this row is what
+ * the page lists. A row starts without `uploadedAt`: it is created when the athlete asks
+ * to upload, and `uploadedAt` is set once the file is confirmed to be in the bucket, so
+ * a half-finished upload never shows up in the feed. Like hearts, not audited.
+ */
+export const vlogVideos = appSchema.table(
+  "vlog_videos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    athleteId: uuid("athlete_id")
+      .notNull()
+      .references(() => athletes.id, { onDelete: "cascade" }),
+    /** Optional: the event the clip is about. Deleting the event keeps the video. */
+    eventId: uuid("event_id").references(() => events.id, { onDelete: "set null" }),
+    title: text("title").notNull(),
+    objectKey: text("object_key").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    uploadedAt: timestamp("uploaded_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("vlog_videos_object_key_key").on(t.objectKey),
+    index("vlog_videos_feed_idx").on(t.uploadedAt),
+  ],
+);
+
+/**
+ * One athlete's heart on one Vlog video. The row existing is the heart; taking it back
+ * deletes the row.
+ */
+export const vlogHearts = appSchema.table(
+  "vlog_hearts",
+  {
+    videoId: uuid("video_id")
+      .notNull()
+      .references(() => vlogVideos.id, { onDelete: "cascade" }),
+    athleteId: uuid("athlete_id")
+      .notNull()
+      .references(() => athletes.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.videoId, t.athleteId] })],
+);
+
 export const events = appSchema.table(
   "events",
   {

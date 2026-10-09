@@ -4,6 +4,7 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecr from "aws-cdk-lib/aws-ecr";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as rds from "aws-cdk-lib/aws-rds";
+import * as s3 from "aws-cdk-lib/aws-s3";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { FckNatInstanceProvider } from "cdk-fck-nat";
 import type { Construct } from "constructs";
@@ -216,7 +217,8 @@ export class SiteStack extends cdk.Stack {
 
     // --- App Runner ------------------------------------------------------------------------
     // The access role lets App Runner pull the image from the registry. The instance role is
-    // what the running app is allowed to do: read its three secrets, and nothing else.
+    // what the running app is allowed to do: read its secrets, read and write the Vlog
+    // bucket, and nothing else.
     const accessRole = new iam.Role(this, "AccessRole", {
       assumedBy: new iam.ServicePrincipal("build.apprunner.amazonaws.com"),
       managedPolicies: [
@@ -229,6 +231,34 @@ export class SiteStack extends cdk.Stack {
     appDatabaseUrl.grantRead(instanceRole);
     launchDarklySdkKey.grantRead(instanceRole);
     spotifyCredentials.grantRead(instanceRole);
+
+    // --- Vlog videos ------------------------------------------------------------------------
+    // Private: nothing is public. The browser uploads and plays videos with short-lived
+    // presigned URLs the app signs (src/lib/vlogMedia.ts), so the bytes never pass through
+    // App Runner. It stays empty, and costs nothing, while the "show-vlog-page" flag is off.
+    // RETAIN, so deleting the stack can never delete uploaded videos.
+    const vlogBucket = new s3.Bucket(this, "VlogBucket", {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      // The browser PUTs and GETs from the site's own origin. "*" rather than that origin
+      // because the origin is App Runner's generated URL, which would make the bucket and
+      // the service depend on each other. It grants nothing by itself: every request still
+      // needs a signature the app only gives to signed-in athletes, and no cookies are sent.
+      cors: [
+        {
+          allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.HEAD, s3.HttpMethods.PUT],
+          allowedOrigins: ["*"],
+          allowedHeaders: ["*"],
+          exposedHeaders: ["Content-Length", "Content-Range", "ETag"],
+          maxAge: 3000,
+        },
+      ],
+      // Half-finished uploads are not billed forever.
+      lifecycleRules: [{ abortIncompleteMultipartUploadAfter: cdk.Duration.days(1) }],
+    });
+    vlogBucket.grantReadWrite(instanceRole);
 
     // In the private subnets, so the app's outbound traffic has the NAT instance as a way
     // out. A connector's subnets cannot change in place, so changing them replaces it, and
@@ -280,6 +310,9 @@ export class SiteStack extends cdk.Stack {
               // Two instances at most, so a few connections each is comfortably within
               // what even a small Aurora allows.
               { name: "DATABASE_POOL_MAX", value: "4" },
+              // Not a secret. Its presence is what turns Vlog uploads on (once the flag is on too).
+              { name: "VLOG_MEDIA_BUCKET", value: vlogBucket.bucketName },
+              { name: "AWS_REGION", value: this.region },
             ],
             // App Runner fetches these at startup, so a changed value needs a new deployment.
             runtimeEnvironmentSecrets: [
@@ -323,6 +356,7 @@ export class SiteStack extends cdk.Stack {
     new cdk.CfnOutput(this, "DatabaseMasterSecretArn", { value: database.secret!.secretArn });
     new cdk.CfnOutput(this, "AppDatabaseUrlSecretArn", { value: appDatabaseUrl.secretArn });
     new cdk.CfnOutput(this, "LaunchDarklySdkKeySecretArn", { value: launchDarklySdkKey.secretArn });
+    new cdk.CfnOutput(this, "VlogBucketName", { value: vlogBucket.bucketName });
     new cdk.CfnOutput(this, "SpotifyCredentialsSecretArn", { value: spotifyCredentials.secretArn });
   }
 }
