@@ -19,5 +19,24 @@ services:
       timeout: 5s
       retries: 10
 
+  # S3 stand-in for the Vlog's videos (Adobe's S3Mock). The app talks to it exactly as it
+  # talks to S3, with presigned URLs, so uploads and playback behave the same locally as in
+  # production. It creates the bucket itself and keeps files across restarts.
+  storage:
+    image: adobe/s3mock
+    container_name: rva4neva-storage
+    # The image runs as an unprivileged user that can't write to a fresh named volume.
+    user: root
+    restart: unless-stopped
+    environment:
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: rva4neva-vlog-dev
+      COM_ADOBE_TESTING_S3MOCK_STORE_ROOT: /data
+      COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT: "true"
+    ports:
+      - "9090:9090"
+    volumes:
+      - storagedata:/data
+
 volumes:
   dbdata:
+  storagedata:

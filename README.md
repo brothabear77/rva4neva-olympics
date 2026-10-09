@@ -50,7 +50,7 @@ Requires Node 20.9+ and Docker (Colima works).
 npm install
 cp .env.example .env.local && cp .env.example .env
 
-npm run db:up          # Postgres 17 in Docker on port 5433
+npm run db:up          # Postgres 17 on port 5433, and S3Mock on 9090 for Vlog videos
 npm run db:migrate     # schema + audit triggers
 npm run db:seed        # ten events and the roster
 # npm run db:seed -- --with-results   # ...plus sample scores to look at
