@@ -3,6 +3,7 @@ import { EmptyState, PageHeader } from "@/components/ui";
 import { getSession, isAdmin, isMember } from "@/lib/auth";
 import { showVlogPage } from "@/lib/flags";
 import { VlogFeed } from "@/components/VlogFeed";
+import { VlogGrid } from "@/components/VlogGrid";
 import { VlogUploadForm } from "@/components/VlogUploadForm";
 import { getEventsForForm } from "@/lib/queries";
 import { getVlogItems } from "@/lib/vlogFeed";
@@ -23,7 +24,9 @@ export default async function VlogPage() {
   if (!isMember(session)) redirect("/");
 
   const configured = vlogMediaConfigured();
-  const items = configured ? await getVlogItems({ athleteId: session.athleteId, isAdmin: isAdmin(session) }) : [];
+  const viewer = { athleteId: session.athleteId, isAdmin: isAdmin(session) };
+  const items = configured ? (await getVlogItems(viewer)).items : [];
+  const confessions = configured ? await getVlogItems(viewer, true) : null;
   const eventOptions = (await getEventsForForm()).map((event) => ({ id: event.id, name: event.name }));
 
   return (
@@ -66,6 +69,20 @@ export default async function VlogPage() {
       ) : (
         <EmptyState title="No videos yet">Be the first to share a clip.</EmptyState>
       )}
+
+      {confessions ? (
+        <section className="mt-12">
+          <h2 className="mb-1 font-display text-2xl font-bold uppercase tracking-wide text-paper">Confessions</h2>
+          {confessions.isPublic ? null : <p className="mb-4 text-sm text-muted">Only you can see your own confessions.</p>}
+          {confessions.items.length > 0 ? (
+            <VlogGrid items={confessions.items} canHeart={session.athleteId !== null && confessions.isPublic} />
+          ) : (
+            <EmptyState title="No confessions yet">
+              Pick &ldquo;Confession&rdquo; as the event when you upload one.
+            </EmptyState>
+          )}
+        </section>
+      ) : null}
     </>
   );
 }

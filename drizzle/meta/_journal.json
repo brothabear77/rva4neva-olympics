@@ -57,6 +57,13 @@
       "when": 1791505545839,
       "tag": "0007_vlog_videos",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791651886286,
+      "tag": "0008_confession_videos",
+      "breakpoints": true
     }
   ]
 }

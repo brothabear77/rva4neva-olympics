@@ -222,6 +222,8 @@ export const vlogVideos = appSchema.table(
       .references(() => athletes.id, { onDelete: "cascade" }),
     /** Optional: the event the clip is about. Deleting the event keeps the video. */
     eventId: uuid("event_id").references(() => events.id, { onDelete: "set null" }),
+    /** A confession: shown only to its uploader until the games are finished (see gamesFinished). */
+    confession: boolean("confession").notNull().default(false),
     title: text("title").notNull(),
     objectKey: text("object_key").notNull(),
     contentType: text("content_type").notNull(),
