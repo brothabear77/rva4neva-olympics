@@ -29,7 +29,7 @@ const NOT_AVAILABLE = "Vlog uploads aren't available right now.";
 
 async function athleteSession(): Promise<(Session & { athleteId: string }) | null> {
   const session = await getSession();
-  return session?.athleteId ? (session as Session & { athleteId: string }) : null;
+  return session?.role === "athlete" && session.athleteId ? (session as Session & { athleteId: string }) : null;
 }
 
 /** Deletes an object, tolerating failure: a leftover file is a smaller problem than a failed request. */

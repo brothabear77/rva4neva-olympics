@@ -23,6 +23,7 @@ export default async function VlogPage() {
   if (!session) redirect("/login?next=/athletes/vlog");
   if (!isMember(session)) redirect("/");
 
+  const canUpload = session.role === "athlete" && session.athleteId !== null;
   const configured = vlogMediaConfigured();
   const viewer = { athleteId: session.athleteId, isAdmin: isAdmin(session) };
   const items = configured ? (await getVlogItems(viewer)).items : [];
@@ -37,31 +38,32 @@ export default async function VlogPage() {
         description="Share training clips, attempts and highlights with the group."
       />
 
-      {/* Closed by default: most visits are for watching, so the form stays out of the way until asked for. */}
-      <details className="group reveal mb-10">
-        <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
-          <h2 className="font-display text-lg font-bold uppercase tracking-wide text-paper">Upload a video</h2>
-          <svg
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-            className="h-6 w-6 shrink-0 text-muted transition-transform group-open:rotate-180 motion-reduce:transition-none"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M6 9l6 6 6-6" />
-          </svg>
-        </summary>
-        <div className="pt-4">
-          <VlogUploadForm
-            enabled={configured}
-            canUpload={session.athleteId !== null}
-            events={eventOptions}
-          />
-        </div>
-      </details>
+      {/* Athletes only: the admin and scorekeeper accounts can watch but not upload. */}
+      {canUpload ? (
+        <>
+          {/* Closed by default: most visits are for watching, so the form stays out of the way until asked for. */}
+          <details className="group reveal mb-10">
+            <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
+              <h2 className="font-display text-lg font-bold uppercase tracking-wide text-paper">Upload a video</h2>
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                className="h-6 w-6 shrink-0 text-muted transition-transform group-open:rotate-180 motion-reduce:transition-none"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </summary>
+            <div className="pt-4">
+              <VlogUploadForm enabled={configured} canUpload events={eventOptions} />
+            </div>
+          </details>
+        </>
+      ) : null}
 
       <h2 className="mb-4 font-display text-2xl font-bold uppercase tracking-wide text-paper">Videos</h2>
       {items.length > 0 ? (
