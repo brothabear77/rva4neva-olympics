@@ -8,6 +8,9 @@ import { VlogFilePicker } from "./VlogFilePicker";
 
 type EventOption = { id: string; name: string };
 
+/** The Event dropdown's value for a confession, which is a tag rather than an event. */
+const CONFESSION = "__confession";
+
 /** Sends `file` to a presigned URL, reporting progress. fetch can't, so this is XMLHttpRequest. */
 function putFile(url: string, file: File, contentType: string, onProgress: (fraction: number) => void): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -56,7 +59,8 @@ export function VlogUploadForm({
     try {
       const requested = await requestVlogUpload({
         title,
-        eventId: eventId || null,
+        eventId: eventId && eventId !== CONFESSION ? eventId : null,
+        confession: eventId === CONFESSION,
         contentType,
         sizeBytes: file.size,
       });
@@ -67,7 +71,7 @@ export function VlogUploadForm({
       setFile(null);
       setTitle("");
       setEventId("");
-      setMessage({ ok: true, text: "Uploaded. It's in the feed below." });
+      setMessage({ ok: true, text: "Uploaded. It's in the list below." });
       router.refresh();
     } catch (error) {
       setMessage({ ok: false, text: error instanceof Error ? error.message : "The upload failed. Try again." });
@@ -105,6 +109,7 @@ export function VlogUploadForm({
           className="field"
         >
           <option value="">Not tied to an event</option>
+          <option value={CONFESSION}>Confession (private, only you can see it)</option>
           {events.map((event) => (
             <option key={event.id} value={event.id}>
               {event.name}

@@ -1,0 +1,1 @@
+ALTER TABLE "app"."vlog_videos" ADD COLUMN "confession" boolean DEFAULT false NOT NULL;

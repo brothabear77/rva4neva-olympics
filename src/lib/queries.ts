@@ -134,6 +134,17 @@ export interface EventSummary extends Event {
   leaderRaw: number | null;
 }
 
+/** Every athlete has a result in every event: there's nothing left to score. */
+export function allScoresIn(entries: LeaderboardEntry[], eventCount: number): boolean {
+  return entries.length * eventCount > 0 && entries.every((e) => e.eventsCompleted === eventCount);
+}
+
+/** Whether the games are finished: the homepage's "Games finished", and when confessions go public. */
+export async function gamesFinished(): Promise<boolean> {
+  const [entries, eventList] = await Promise.all([getLeaderboard(), getEventSummaries()]);
+  return allScoresIn(entries, eventList.length);
+}
+
 export async function getEventSummaries(): Promise<EventSummary[]> {
   const [list, rows] = await Promise.all([
     db.select().from(events).orderBy(asc(events.day), asc(events.sortOrder), asc(events.name)),

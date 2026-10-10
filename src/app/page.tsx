@@ -8,7 +8,7 @@ import { LiveRefresh } from "@/components/LiveRefresh";
 import { RankBadge } from "@/components/ui";
 import { ATHLETE_PROFILES } from "@/content/athletes";
 import { QUOTES } from "@/content/quotes";
-import { getAthleteProfiles, getEventSummaries, getLeaderboard, getRecentResults, getWalkoutSongs } from "@/lib/queries";
+import { allScoresIn, getAthleteProfiles, getEventSummaries, getLeaderboard, getRecentResults, getWalkoutSongs } from "@/lib/queries";
 import { canScore, getSession } from "@/lib/auth";
 import { showChampion } from "@/lib/flags";
 import { mergeAthleteProfiles } from "@/lib/profiles";
@@ -43,13 +43,12 @@ export default async function HomePage() {
   const podium = entries.filter((e) => e.eventsCompleted > 0).slice(0, 3);
   const scored = events.filter((e) => e.resultCount > 0).length;
   // Every athlete has a result in every event: there's nothing left to submit.
-  const possibleResults = entries.length * events.length;
-  const allScoresIn = possibleResults > 0 && entries.every((e) => e.eventsCompleted === events.length);
+  const finished = allScoresIn(entries, events.length);
 
   // Tiebreakers mean rank 1 is a single athlete, not a shared place — but Champion
   // still takes a list rather than one entry, so a scoring change that brought
   // ties back wouldn't silently drop a co-champion from the page.
-  const championRows = allScoresIn && (await showChampion())
+  const championRows = finished && (await showChampion())
     ? mergeAthleteProfiles(
         entries.map((e) => ({
           id: e.athleteId,
@@ -96,7 +95,7 @@ export default async function HomePage() {
             <Image src="/rva4nevaoly.svg" alt="#rva4neva Olympics" width={168} height={168} priority unoptimized className="mx-auto mt-3 h-auto w-16 sm:w-24" />
 
             <div className="mt-8 flex justify-center">
-              <Countdown startsAt={SITE.startsAt} finished={allScoresIn} />
+              <Countdown startsAt={SITE.startsAt} finished={finished} />
             </div>
 
             <div className="mt-8 flex flex-wrap justify-center gap-2">

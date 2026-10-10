@@ -98,7 +98,7 @@ export function VlogFeed({ items, canHeart }: { items: VlogItem[]; canHeart: boo
       )}
 
       {shown.length > 0 ? (
-        <VlogGrid items={shown} canHeart={canHeart} />
+        <VlogGrid key={`${search}|${athlete}|${event}`} items={shown} canHeart={canHeart} />
       ) : (
         <p className="card px-6 py-10 text-center text-sm text-muted">No videos match those filters.</p>
       )}

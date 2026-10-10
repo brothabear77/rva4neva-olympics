@@ -7,6 +7,7 @@ import { db } from "./db";
 import { canEditAthlete, getSession, refusal, type Session } from "./auth";
 import { events, vlogHearts, vlogVideos } from "./schema";
 import { showVlogPage } from "./flags";
+import { gamesFinished } from "./queries";
 import { VLOG_MAX_BYTES, VLOG_VIDEO_TYPES, deleteStored, signUpload, storedSize, vlogMediaConfigured, vlogObjectKey } from "./vlogMedia";
 import type { ActionResult } from "./actions";
 
@@ -47,6 +48,8 @@ async function deleteQuietly(key: string) {
 export async function requestVlogUpload(input: {
   title: string;
   eventId: string | null;
+  /** Tagged "Confession": kept private to the uploader until the games are finished. */
+  confession?: boolean;
   contentType: string;
   sizeBytes: number;
 }): Promise<ActionResult<{ videoId: string; uploadUrl: string }>> {
@@ -54,6 +57,7 @@ export async function requestVlogUpload(input: {
     .object({
       title: z.string().trim().min(1, "Give the video a title.").max(MAX_VLOG_TITLE_LENGTH, "That title is too long."),
       eventId: z.string().uuid().nullable(),
+      confession: z.boolean().default(false),
       contentType: z.string().refine((t) => t in VLOG_VIDEO_TYPES, "Use an MP4, MOV or WebM video."),
       sizeBytes: z
         .number()
@@ -68,7 +72,9 @@ export async function requestVlogUpload(input: {
   if (!session) return fail(await refusal());
   if (!(await showVlogPage()) || !vlogMediaConfigured()) return fail(NOT_AVAILABLE);
 
-  const { title, eventId, contentType, sizeBytes } = parsed.data;
+  const { title, contentType, sizeBytes, confession } = parsed.data;
+  // A confession is its own tag, not an event.
+  const eventId = confession ? null : parsed.data.eventId;
   if (eventId) {
     const [event] = await db.select({ id: events.id }).from(events).where(eq(events.id, eventId)).limit(1);
     if (!event) return fail("That event no longer exists.");
@@ -94,7 +100,7 @@ export async function requestVlogUpload(input: {
   if (!objectKey) return fail("Use an MP4, MOV or WebM video.");
   const [video] = await db
     .insert(vlogVideos)
-    .values({ athleteId: session.athleteId, eventId, title, objectKey, contentType, sizeBytes })
+    .values({ athleteId: session.athleteId, eventId, confession, title, objectKey, contentType, sizeBytes })
     .returning({ id: vlogVideos.id });
 
   try {
@@ -173,11 +179,13 @@ export async function setHeart(input: { videoId: string; hearted: boolean }): Pr
   const { videoId, hearted } = parsed.data;
   if (hearted) {
     const [video] = await db
-      .select({ id: vlogVideos.id })
+      .select({ id: vlogVideos.id, athleteId: vlogVideos.athleteId, confession: vlogVideos.confession })
       .from(vlogVideos)
       .where(eq(vlogVideos.id, videoId))
       .limit(1);
     if (!video) return fail("That video no longer exists.");
+    // Nobody can see a confession yet, so nobody can heart it.
+    if (video.confession && !(await gamesFinished())) return fail("That video no longer exists.");
     await db.insert(vlogHearts).values({ videoId, athleteId: session.athleteId }).onConflictDoNothing();
   } else {
     await db
