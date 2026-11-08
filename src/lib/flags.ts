@@ -13,19 +13,19 @@ export { SHOW_VLOG_FLAG };
  */
 
 /**
- * On means the scores are frozen: nothing can be submitted, deleted or restored from
- * the change history. Off (or unreachable) means everything is open. The key is
- * "submission-lock" because that is what it was first created for; it now covers all
- * three.
+ * On (or unreachable) means everything is open. Off means the scores are frozen:
+ * nothing can be submitted, deleted or restored from the change history. The key is
+ * "open-submission" because submitting is what it was first created for; it now
+ * covers all three.
  */
-export const SUBMISSION_LOCK_FLAG = "submission-lock";
+export const OPEN_SUBMISSION_FLAG = "open-submission";
 
 export const SUBMISSIONS_LOCKED_MESSAGE = "The scoreboard is currently locked.";
 
 /**
  * Gates the champion on the home page, on top of the scores being complete: both
- * have to hold. Falls back to on, so an outage at LaunchDarkly doesn't hide a
- * champion that is otherwise due.
+ * have to hold. Falls back to on, like open-submission, so an outage at
+ * LaunchDarkly doesn't hide a champion that is otherwise due.
  */
 export const SHOW_CHAMPION_FLAG = "show-champion";
 
@@ -43,7 +43,8 @@ export function showVlogPage(): Promise<boolean> {
 }
 
 /**
- * Whether the scores are currently frozen.
+ * Whether the scores are currently frozen, i.e. the open-submission flag is off.
+ * The flag falls back to on, so an outage at LaunchDarkly leaves submissions open.
  *
  * This is what stops a change, not the page: the grid, the CSV import and the
  * remove/undo buttons are disabled while it is true, but anyone can post to a
@@ -53,6 +54,6 @@ export function showVlogPage(): Promise<boolean> {
  *
  * Deliberately not covered: setting a walkout song, and retuning an event's scale.
  */
-export function submissionsLocked(): Promise<boolean> {
-  return boolFlag(SUBMISSION_LOCK_FLAG, false);
+export async function submissionsLocked(): Promise<boolean> {
+  return !(await boolFlag(OPEN_SUBMISSION_FLAG, true));
 }
