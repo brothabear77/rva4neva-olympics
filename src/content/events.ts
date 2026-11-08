@@ -104,7 +104,10 @@ export const EVENT_GUIDES: EventGuideEntry[] = [
     slug: "vertical-jump",
     summary: "Vertical jump for height",
     rules: ["Three attempts, best height is marked"],
-    media: {},
+    media: {
+      youtube: "https://www.youtube.com/watch?v=85EtdsmFCoY",
+      poster: "/events/vertical-jump-still.jpg",
+    },
   },
   {
     slug: "farmers-walk",
