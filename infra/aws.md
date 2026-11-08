@@ -240,7 +240,7 @@ brings its own HTTPS front end.
 ## Feature flags
 
 Flags live in LaunchDarkly (project `default`); `src/lib/flags.ts` lists the ones the site
-reads. Today that is one: `submission-lock`. On, and the scores are frozen: nobody can submit
+reads. Today that is one: `open-submission`. Off, and the scores are frozen: nobody can submit
 scores, delete them (including deleting an athlete, which removes their scores), or restore a
 change from the history. The buttons are disabled under a red banner and the server refuses
 the actions too. Adding or renaming an athlete and retuning an event's scale still work. Flip it in LaunchDarkly's **Production** environment. The site picks the change
@@ -280,7 +280,7 @@ visitor's browser.
 
 Two things are deliberately different from the rest of the site's data. **Choosing a song is
 not recorded in Change History**, because the table has no audit trigger (a song is not a
-score). And it is **not frozen by the `submission-lock` flag**. The one gap: undoing an
+score). And it is **not frozen by the `open-submission` flag**. The one gap: undoing an
 athlete's deletion from Change History brings back the athlete and their scores, but not the
 song.
 

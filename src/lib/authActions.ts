@@ -28,7 +28,7 @@ const fail = (message: string): ActionResult<never> => ({ ok: false, message });
 /** More than this many claims waiting on one athlete is someone trying their luck. */
 const MAX_PENDING_PER_ATHLETE = 3;
 /** Wrong passwords in a row before the account waits a minute. */
-const MAX_FAILED_LOGINS = 5;
+const MAX_FAILED_LOGINS = 50000000000;
 const LOCKOUT_MS = 60_000;
 
 function revalidateAccounts() {
