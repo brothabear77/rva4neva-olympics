@@ -92,6 +92,13 @@
       "when": 1794253917516,
       "tag": "0012_drop_signup_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794256534522,
+      "tag": "0013_unrecoverable_history",
+      "breakpoints": true
     }
   ]
 }
