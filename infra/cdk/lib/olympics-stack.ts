@@ -199,6 +199,18 @@ export class SiteStack extends cdk.Stack {
       secretStringValue: cdk.SecretValue.unsafePlainText("not-provisioned-yet"),
     });
 
+    // --- Flag service -----------------------------------------------------------------------
+    //
+    // The owner's own flag service (feature-flag-service), replacing LaunchDarkly. FLAG_SERVICE_URL
+    // being set on the service below is what switches the app to it; removing it is the rollback.
+    // The SDK key is for the service's Production environment, set by hand once (see "Feature
+    // flags" in infra/aws.md); the placeholder means no key: every flag falls back to its default.
+    const flagServiceSdkKey = new secretsmanager.Secret(this, "FlagServiceSdkKey", {
+      secretName: "rva4neva/flag-service-sdk-key",
+      description: "Flag service SDK key (Production environment). Set by hand; see infra/aws.md.",
+      secretStringValue: cdk.SecretValue.unsafePlainText("not-provisioned-yet"),
+    });
+
     // --- Spotify ------------------------------------------------------------------------------
     //
     // The app's Client ID and Secret from the Spotify developer dashboard, for looking up
@@ -230,6 +242,7 @@ export class SiteStack extends cdk.Stack {
     });
     appDatabaseUrl.grantRead(instanceRole);
     launchDarklySdkKey.grantRead(instanceRole);
+    flagServiceSdkKey.grantRead(instanceRole);
     spotifyCredentials.grantRead(instanceRole);
 
     // --- Vlog videos ------------------------------------------------------------------------
@@ -313,11 +326,18 @@ export class SiteStack extends cdk.Stack {
               // Not a secret. Its presence is what turns Vlog uploads on (once the flag is on too).
               { name: "VLOG_MEDIA_BUCKET", value: vlogBucket.bucketName },
               { name: "AWS_REGION", value: this.region },
+              // The flag service. Not a secret. App Runner's default URL, so it changes if that
+              // service is ever recreated. TTL 0 with a 250 ms wait asks it on every read, so a
+              // dashboard change shows on the next page load; raise the TTL if that costs too much.
+              { name: "FLAG_SERVICE_URL", value: "https://4nxpsigzar.us-east-1.awsapprunner.com" },
+              { name: "FLAG_SERVICE_TTL_MS", value: "0" },
+              { name: "FLAG_SERVICE_FRESH_WAIT_MS", value: "250" },
             ],
             // App Runner fetches these at startup, so a changed value needs a new deployment.
             runtimeEnvironmentSecrets: [
               { name: "DATABASE_URL", value: appDatabaseUrl.secretArn },
               { name: "LAUNCHDARKLY_SDK_KEY", value: launchDarklySdkKey.secretArn },
+              { name: "FLAG_SERVICE_SDK_KEY", value: flagServiceSdkKey.secretArn },
               // "<arn>:<json key>::" is how App Runner picks one field out of a JSON secret.
               { name: "SPOTIFY_CLIENT_ID", value: `${spotifyCredentials.secretArn}:clientId::` },
               { name: "SPOTIFY_CLIENT_SECRET", value: `${spotifyCredentials.secretArn}:clientSecret::` },
@@ -356,6 +376,7 @@ export class SiteStack extends cdk.Stack {
     new cdk.CfnOutput(this, "DatabaseMasterSecretArn", { value: database.secret!.secretArn });
     new cdk.CfnOutput(this, "AppDatabaseUrlSecretArn", { value: appDatabaseUrl.secretArn });
     new cdk.CfnOutput(this, "LaunchDarklySdkKeySecretArn", { value: launchDarklySdkKey.secretArn });
+    new cdk.CfnOutput(this, "FlagServiceSdkKeySecretArn", { value: flagServiceSdkKey.secretArn });
     new cdk.CfnOutput(this, "VlogBucketName", { value: vlogBucket.bucketName });
     new cdk.CfnOutput(this, "SpotifyCredentialsSecretArn", { value: spotifyCredentials.secretArn });
   }
