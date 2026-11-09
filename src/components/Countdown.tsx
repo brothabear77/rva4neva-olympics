@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 
 /**
@@ -63,23 +64,31 @@ export function Countdown({
   ];
 
   return (
-    <div
-      className={large ? "flex justify-center gap-5 sm:gap-10" : "flex gap-4"}
-      aria-label="Time until the games begin"
-    >
-      {parts.map((part) => (
-        <div key={part.label} className={large ? "text-center" : undefined}>
-          <p
-            className={[
-              "tnum font-display font-bold text-paper",
-              large ? "text-5xl sm:text-7xl" : "text-2xl sm:text-3xl",
-            ].join(" ")}
-          >
-            {String(part.value).padStart(2, "0")}
-          </p>
-          <p className={large ? "eyebrow mt-1 sm:mt-2" : "eyebrow"}>{part.label}</p>
-        </div>
-      ))}
+    <div className="flex flex-col items-center">
+      <h3 className="text-2xl font-bold text-accent mb-5">September 4-7, 2026</h3>
+      <div
+        className={large ? "flex justify-center gap-5 sm:gap-10" : "flex gap-4"}
+        aria-label="Time until the games begin"
+      >
+        {parts.map((part) => (
+          <div key={part.label} className={large ? "text-center" : undefined}>
+            <p
+              className={[
+                "tnum font-display font-bold text-paper",
+                large ? "text-5xl sm:text-7xl" : "text-2xl sm:text-3xl",
+              ].join(" ")}
+            >
+              {String(part.value).padStart(2, "0")}
+            </p>
+            <p className={large ? "eyebrow mt-1 sm:mt-2" : "eyebrow"}>{part.label}</p>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        <Icon icon="mdi:location-on-outline" className="text-paper/80 mt-5"/>
+        <p className="text-lg text-paper/80 mt-5">Denny Farrell Riverbank State Park</p>
+      </div>
+      <p className="text-lg text-paper/80">New York, NY</p>
     </div>
   );
 }
