@@ -40,7 +40,7 @@ function credentials(): { id: string; secret: string } | null {
 }
 
 // Next's dev server re-evaluates modules on every edit, so the token lives on globalThis
-// (as the LaunchDarkly client does) rather than being fetched again after each one.
+// (as the flag client does) rather than being fetched again after each one.
 const globalForSpotify = globalThis as unknown as {
   __olympicsSpotifyToken?: { value: string; expiresAt: number };
   __olympicsSpotifyWarned?: boolean;

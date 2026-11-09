@@ -1,15 +1,16 @@
 import "server-only";
-import { boolFlag } from "./launchdarkly";
+import { boolFlag } from "./ffs-client";
 import { SHOW_VLOG_FLAG } from "./site";
 
-export { SHOW_VLOG_FLAG };
+// Re-exported so server code reads flags through this server-only module, not ffs-client directly.
+export { boolFlag, SHOW_VLOG_FLAG };
 
 /**
- * The site's feature flags. Each is a boolean flag in LaunchDarkly; the key here
- * has to match the key there. Every flag has a fallback, used whenever
- * LaunchDarkly is unreachable or has no SDK key, and each fallback is the
+ * The site's feature flags. Each is a boolean flag in the flag service (feature-flag-service,
+ * project rva4neva-olympics); the key here has to match the key there. Every flag has a
+ * fallback, used whenever the service is unreachable or has no SDK key, and each fallback is the
  * behavior the site should have if nobody has touched anything: an outage at
- * LaunchDarkly must never lock the scoreboard.
+ * the flag service must never lock the scoreboard.
  */
 
 /**
@@ -25,7 +26,7 @@ export const SUBMISSIONS_LOCKED_MESSAGE = "The scoreboard is currently locked.";
 /**
  * Gates the champion on the home page, on top of the scores being complete: both
  * have to hold. Falls back to on, like open-submission, so an outage at
- * LaunchDarkly doesn't hide a champion that is otherwise due.
+ * the flag service doesn't hide a champion that is otherwise due.
  */
 export const SHOW_CHAMPION_FLAG = "show-champion";
 
@@ -35,7 +36,7 @@ export function showChampion(): Promise<boolean> {
 
 /**
  * Gates the Vlog page and its nav item while uploads are unfinished. Falls back to off,
- * unlike the flags above: if LaunchDarkly is unreachable, an unfinished page should stay
+ * unlike the flags above: if the flag service is unreachable, an unfinished page should stay
  * hidden rather than appear.
  */
 export function showVlogPage(): Promise<boolean> {
@@ -44,7 +45,7 @@ export function showVlogPage(): Promise<boolean> {
 
 /**
  * Whether the scores are currently frozen, i.e. the open-submission flag is off.
- * The flag falls back to on, so an outage at LaunchDarkly leaves submissions open.
+ * The flag falls back to on, so an outage at the flag service leaves submissions open.
  *
  * This is what stops a change, not the page: the grid, the CSV import and the
  * remove/undo buttons are disabled while it is true, but anyone can post to a

@@ -7,7 +7,7 @@ Nothing here is needed for local development: `npm run db:up` covers that (Postg
 your laptop ──docker push──▶ ECR ──▶ App Runner ──(VPC connector)──▶ Aurora
                                      (HTTPS URL)        │               ▲
                                                         ▼               │
-                      NAT instance ──▶ LaunchDarkly, Spotify            │
+                      NAT instance ──▶ flag service, Spotify            │
                      migrations and psql, from one IP address ──────────┘
 ```
 
@@ -15,11 +15,11 @@ your laptop ──docker push──▶ ECR ──▶ App Runner ──(VPC conne
 |---|---|---|
 | Registry | ECR repository `rva4neva-olympics`, keeps the last 10 images, tags never overwritten | `infra/cdk/lib/olympics-stack.ts` (`RegistryStack`) |
 | Network | A VPC, two availability zones. Public subnets (Aurora, the NAT instance) and private subnets (the app's VPC connector only) | `SiteStack` |
-| NAT instance | fck-nat on a `t4g.nano`, in an Auto Scaling group of one: the app's only route to the internet, for LaunchDarkly and Spotify | `SiteStack` |
+| NAT instance | fck-nat on a `t4g.nano`, in an Auto Scaling group of one: the app's only route to the internet, for the flag service and Spotify | `SiteStack` |
 | Database | Aurora Serverless v2, PostgreSQL 17, 0 to 2 ACU, pauses after 5 idle minutes | `SiteStack` |
 | App | App Runner: 0.25 vCPU, 1 GB, one instance always on, at most two | `SiteStack` |
 | Vlog bucket | Private S3 bucket for Vlog videos, kept if the stack is deleted; see *Vlog media* | `SiteStack` |
-| Secrets | `rva4neva/database-master` (the owner), `rva4neva/app-database-url` (what the app uses), `rva4neva/launchdarkly-sdk-key` and `rva4neva/flag-service-sdk-key` (set by hand, see *Feature flags*), `rva4neva/spotify-credentials` (set by hand, see *Walkout songs*) | `SiteStack` |
+| Secrets | `rva4neva/database-master` (the owner), `rva4neva/app-database-url` (what the app uses), `rva4neva/flag-service-sdk-key` (set by hand, see *Feature flags*), `rva4neva/spotify-credentials` (set by hand, see *Walkout songs*) | `SiteStack` |
 
 Infrastructure is AWS CDK in `infra/cdk`, a package of its own, so none of it reaches the
 app's dependencies or its Docker image. Two scripts drive it: `scripts/deploy.ts` and
@@ -232,38 +232,36 @@ Estimates from memory, not live pricing, so check the AWS pricing pages before r
 | NAT instance (`t4g.nano` + its public IPv4 address) | about $7 a month | same |
 | ECR, Secrets Manager | under $1 a month | same |
 
-The server's outbound calls are to LaunchDarkly (feature flags) and Spotify (walkout song
+The server's outbound calls are to the flag service (feature flags) and Spotify (walkout song
 search). They go through a NAT *instance* rather than a managed NAT gateway (about $32 a
 month) for the sake of two small streams of traffic. There is no load balancer: App Runner
 brings its own HTTPS front end.
 
 ## Feature flags
 
-Flags live in LaunchDarkly (project `default`); `src/lib/flags.ts` lists the ones the site
-reads. Today that is one: `open-submission`. Off, and the scores are frozen: nobody can submit
-scores, delete them (including deleting an athlete, which removes their scores), or restore a
-change from the history. The buttons are disabled under a red banner and the server refuses
-the actions too. Adding or renaming an athlete and retuning an event's scale still work. Flip it in LaunchDarkly's **Production** environment. The site picks the change
-up within seconds, no deploy needed.
+Flags live in the owner's own flag service, feature-flag-service
+(`https://4nxpsigzar.us-east-1.awsapprunner.com`, project `rva4neva-olympics`). Its repository,
+`~/Projects/feature-flag-service`, describes its own hosting. `src/lib/flags.ts` lists the flags
+the site reads, each with the default it uses whenever the service can't answer:
+
+| Flag | Default | What it does |
+|---|---|---|
+| `open-submission` | on | Off, and the scores are frozen: nobody can submit scores, delete them (including deleting an athlete, which removes their scores), or restore a change from the history. The buttons are disabled under a red banner and the server refuses the actions too. Adding or renaming an athlete and retuning an event's scale still work. |
+| `show-champion` | on | Shows the champion on the home page, once the scores are complete. |
+| `show-vlog-page` | off | Shows the Vlog page and its item in the members' Athletes menu. |
+
+Flip them in the dashboard's **Production** environment. The stack sets
+`FLAG_SERVICE_TTL_MS=0` and `FLAG_SERVICE_FRESH_WAIT_MS=250`, so every flag read asks the service
+(an unchanged answer is an empty 304) and a change shows on the next page load, no deploy
+needed. Measured in production, pages load in about 0.07 to 0.15 s with this on. To trade
+freshness for fewer requests, raise `FLAG_SERVICE_TTL_MS` in `olympics-stack.ts` (1000 to 3000
+is reasonable). The client is `src/lib/ffs-client.ts`, a copy of the service repository's
+`client/ffs-client.ts`: change it there first, where its tests are, and copy it across.
 
 **The production SDK key is set by hand, once.** CloudFormation creates the secret with a
-placeholder, which the app treats as no key at all (every flag falls back to its default,
-so submissions stay open). Copy the SDK key from LaunchDarkly (project `default` →
-Environments → Production), then, without putting it in your shell history:
-
-```bash
-read -rs LD_KEY; f=$(mktemp); printf %s "$LD_KEY" > "$f"
-aws secretsmanager put-secret-value --secret-id rva4neva/launchdarkly-sdk-key --secret-string "file://$f"
-rm "$f"; unset LD_KEY
-aws apprunner start-deployment --service-arn <ServiceArn, from the stack outputs>
-```
-
-The restart is needed because App Runner reads secrets only when an instance starts.
-
-**Moving to the owner's flag service.** The stack also sets `FLAG_SERVICE_URL` (the
-feature-flag-service at `https://4nxpsigzar.us-east-1.awsapprunner.com`), and while it is set the
-app reads every flag from that service, not LaunchDarkly. Its SDK key (the service's dashboard →
-project `rva4neva-olympics` → Settings → SDK keys, Production) is set the same way:
+placeholder, which the app treats as no key at all (every flag uses its default). Create a key
+in the dashboard (project `rva4neva-olympics` → Settings → SDK keys, Production; it is shown
+once), then, without putting it in your shell history:
 
 ```bash
 read -rs FFS_KEY; f=$(mktemp); printf %s "$FFS_KEY" > "$f"
@@ -272,13 +270,13 @@ rm "$f"; unset FFS_KEY
 aws apprunner start-deployment --service-arn <ServiceArn, from the stack outputs>
 ```
 
-Until it is set, every flag answers with its default. To roll back to LaunchDarkly, remove
-`FLAG_SERVICE_URL` from `olympics-stack.ts` and deploy. LaunchDarkly is retired once the service has
-proven itself in production.
+The restart is needed because App Runner reads secrets only when an instance starts.
 
-**If LaunchDarkly can't be reached** (the NAT instance is being replaced, or LaunchDarkly
-itself is down), running instances keep the last flag values they received and reconnect on
-their own; an instance that starts during the outage uses each flag's default.
+**If the flag service can't be reached** (the NAT instance is being replaced, or the service
+itself is down), running instances keep the last flag values they received and recover on their
+own. After one failed or slow check, reads stop waiting for 5 seconds, so an outage costs a page
+at most 250 ms once, not on every load. An instance that starts during the outage waits up to
+5 seconds on its first read, then uses each flag's default until the service answers.
 
 **The NAT instance heals itself.** Its Auto Scaling group always holds exactly one instance.
 The private subnets route to a fixed network interface rather than to the instance, and
