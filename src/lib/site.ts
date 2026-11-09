@@ -27,7 +27,7 @@ export function hasStarted(now: number = Date.now()): boolean {
   return now >= new Date(SITE.startsAt).getTime();
 }
 
-/** LaunchDarkly key for the Vlog page. It lives here, not in flags.ts, so the nav can name it; flags.ts re-exports it. */
+/** Flag key for the Vlog page. It lives here, not in flags.ts, so the nav can name it; flags.ts re-exports it. */
 export const SHOW_VLOG_FLAG = "show-vlog-page";
 
 export interface NavLink {
@@ -35,7 +35,7 @@ export interface NavLink {
   label: string;
   /** Shown only to the scorekeeper and the admin. */
   scorekeepersOnly?: boolean;
-  /** Shown only while this LaunchDarkly boolean flag is on. The server evaluates it (see SessionNav). */
+  /** Shown only while this boolean feature flag is on. The server evaluates it (see SessionNav). */
   featureFlag?: string;
 }
 
