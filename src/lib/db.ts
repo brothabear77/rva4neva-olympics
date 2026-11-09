@@ -64,6 +64,8 @@ export interface ActorContext {
   batchId?: string | null;
   /** Set when reapplying an earlier version, so the trigger labels it RESTORE. */
   restoreOf?: number | null;
+  /** Set when deleting an athlete with their account: every entry is marked as not restorable. */
+  unrecoverable?: boolean;
 }
 
 /**
@@ -82,6 +84,7 @@ export async function withActor<T>(ctx: ActorContext, fn: (tx: Tx) => Promise<T>
     await tx.execute(
       sql`select set_config('app.restore_of', ${ctx.restoreOf == null ? "" : String(ctx.restoreOf)}, true)`,
     );
+    await tx.execute(sql`select set_config('app.unrecoverable', ${ctx.unrecoverable ? "true" : ""}, true)`);
     return fn(tx);
   });
 }

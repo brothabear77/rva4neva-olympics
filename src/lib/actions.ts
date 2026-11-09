@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, withActor, type Tx } from "./db";
 import { authorize, canEditAthlete, getSession, refusal } from "./auth";
 import { athletes, changeLog, events, importBatches, walkoutSongs } from "./schema";
 import { results } from "./resultsTable";
+import { isUniqueViolation, userMessage } from "./dbErrors";
 import { isScorable, scoreResult } from "./scoring";
 import { buildImportPreview, parseResultsCsv, type ImportPreview } from "./csv";
 import { MAX_RAW_VALUE, type GridDeletion, type GridSubmission } from "./grid";
@@ -49,41 +50,10 @@ function revalidateScoreboard() {
   }
 }
 
-/** Postgres raises 23505 when a unique index is violated. */
-function isUniqueViolation(error: unknown): boolean {
-  return typeof error === "object" && error !== null && (error as { code?: string }).code === "23505";
-}
+
 
 function describeError(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return "Something went wrong. Nothing was saved.";
-}
-
-/**
- * Look up an athlete by name, case-insensitively, adding them if they are new.
- * A CSV can name someone new, and the scorekeeper shouldn't have to stop and
- * add them to the roster first.
- */
-async function findOrCreateAthlete(tx: Tx, name: string) {
-  const trimmed = name.trim();
-  const [existing] = await tx
-    .select()
-    .from(athletes)
-    .where(sql`lower(${athletes.name}) = lower(${trimmed})`)
-    .limit(1);
-  if (existing) return existing;
-
-  const [created] = await tx.insert(athletes).values({ name: trimmed }).onConflictDoNothing().returning();
-  if (created) return created;
-
-  // Someone added the same name concurrently; take theirs.
-  const [raced] = await tx
-    .select()
-    .from(athletes)
-    .where(sql`lower(${athletes.name}) = lower(${trimmed})`)
-    .limit(1);
-  if (!raced) throw new Error(`Could not create athlete "${trimmed}"`);
-  return raced;
+  return userMessage(error, "Something went wrong. Nothing was saved.");
 }
 
 // ---------------------------------------------------------------------------
@@ -502,14 +472,12 @@ export async function commitImport(
         submittedBy: actor,
       });
 
-      // Resolve every athlete first so the insert below is a single statement.
-      const athleteIds = new Map<string, string>();
-      for (const row of applied) {
-        const key = row.athleteName.toLowerCase();
-        if (athleteIds.has(key)) continue;
-        const athlete = await findOrCreateAthlete(tx, row.athleteName);
-        athleteIds.set(key, athlete.id);
-      }
+      // Every name was matched to the roster by the preview. CSV import never adds
+      // athletes: they join by signing up. Someone deleted since then stops the import.
+      const roster = await tx.select({ id: athletes.id, name: athletes.name }).from(athletes);
+      const athleteIds = new Map(roster.map((a) => [a.name.toLowerCase(), a.id]));
+      const gone = applied.find((row) => !athleteIds.has(row.athleteName.toLowerCase()));
+      if (gone) throw new Error(`${gone.athleteName} is no longer on the roster. Nothing was imported.`);
 
       await tx
         .insert(results)
@@ -617,7 +585,7 @@ async function restoreResult(tx: Tx, entry: AuditEntry): Promise<string> {
     .where(eq(athletes.id, String(target.athlete_id)))
     .limit(1);
   if (!athlete) {
-    throw new Error("The athlete for that result has been deleted. Undo the athlete's deletion first, which brings their scores back too.");
+    throw new Error("The athlete for that result has been deleted, so it can't be restored.");
   }
 
   await tx
@@ -640,97 +608,26 @@ async function restoreResult(tx: Tx, entry: AuditEntry): Promise<string> {
   return `Restored ${athlete.name}'s ${event.name} result (${points} points).`;
 }
 
-/**
- * Put an athlete back: rename them to the name an entry recorded, or, if they
- * have been deleted, bring them back under their original id. An entry that added
- * the athlete is undone by removing them.
- *
- * Deleting an athlete deletes their scores in the same transaction, so undoing
- * that deletion also brings back every score removed with them. The scores are
- * found by their entries in the history: same transaction (so the same
- * timestamp) and belonging to this athlete.
- */
-async function restoreAthlete(tx: Tx, entry: AuditEntry): Promise<string> {
-  const target = (entry.oldRow ?? entry.newRow) as Record<string, unknown> | null;
-  const athleteId = entry.recordId ?? String(target?.id ?? "");
-  const name = String(target?.name ?? "").trim();
-  if (!athleteId || !name) throw new Error("That entry has no athlete to restore.");
+const UNRECOVERABLE = "That athlete was deleted along with their account, so this can't be restored.";
 
-  // Undoing an entry that added the athlete means taking them off the roster again,
-  // which removes their scores with them, exactly as deleting them would.
-  if (entry.operation === "INSERT") {
-    const [{ scores }] = await tx
-      .select({ scores: sql<number>`count(*)::int` })
-      .from(results)
-      .where(eq(results.athleteId, athleteId));
-    const [removed] = await tx.delete(athletes).where(eq(athletes.id, athleteId)).returning();
-    if (!removed) throw new Error("That athlete was already removed.");
-    return `Removed ${removed.name}${scores ? ` and their ${scores} score${scores === 1 ? "" : "s"}` : ""}.`;
-  }
+/** The athlete an entry is about: the athlete row itself, or a score's athlete. */
+function athleteOf(entry: AuditEntry): string | null {
+  if (entry.tableName === "athletes") return entry.recordId;
+  const row = (entry.oldRow ?? entry.newRow) as { athlete_id?: unknown } | null;
+  return entry.tableName === "results" && typeof row?.athlete_id === "string" ? row.athlete_id : null;
+}
 
-  // The name may have been taken by someone else since.
-  const [clash] = await tx
-    .select()
-    .from(athletes)
-    .where(and(sql`lower(${athletes.name}) = lower(${name})`, ne(athletes.id, athleteId)))
+/** Whether this athlete was deleted with their account and is still gone: nothing of theirs can come back. */
+async function deletedForGood(tx: Tx, athleteId: string | null): Promise<boolean> {
+  if (!athleteId) return false;
+  const [onRoster] = await tx.select({ id: athletes.id }).from(athletes).where(eq(athletes.id, athleteId)).limit(1);
+  if (onRoster) return false;
+  const [deletion] = await tx
+    .select({ id: changeLog.id })
+    .from(changeLog)
+    .where(and(eq(changeLog.tableName, "athletes"), eq(changeLog.recordId, athleteId), eq(changeLog.unrecoverable, true)))
     .limit(1);
-  if (clash) {
-    throw new Error(`${clash.name} is already on the roster, so this can't be restored as ${name}. Rename ${clash.name} first.`);
-  }
-
-  const [existing] = await tx.select().from(athletes).where(eq(athletes.id, athleteId)).limit(1);
-  if (existing) {
-    if (existing.name === name) return `${name} already has that name.`;
-    await tx.update(athletes).set({ name }).where(eq(athletes.id, athleteId));
-    return `Renamed ${existing.name} to ${name}.`;
-  }
-
-  await tx.insert(athletes).values({ id: athleteId, name });
-
-  let scoresBack = 0;
-  if (entry.operation === "DELETE") {
-    const removedWithThem = await tx
-      .select()
-      .from(changeLog)
-      .where(
-        and(
-          eq(changeLog.tableName, "results"),
-          eq(changeLog.operation, "DELETE"),
-          // Compared in the database: a JS Date only holds milliseconds, and would
-          // miss a timestamp that has microseconds.
-          sql`${changeLog.changedAt} = (select changed_at from audit.change_log where id = ${entry.id})`,
-          sql`${changeLog.oldRow} ->> 'athlete_id' = ${athleteId}`,
-        ),
-      );
-
-    for (const removed of removedWithThem) {
-      const row = removed.oldRow as Record<string, unknown> | null;
-      if (!row) continue;
-
-      const [event] = await tx.select().from(events).where(eq(events.id, String(row.event_id))).limit(1);
-      if (!event) continue; // the event itself is gone; nothing to attach the score to
-
-      const rawValue = Number(row.raw_value);
-      await tx
-        .insert(results)
-        .values({
-          id: String(row.id),
-          eventId: event.id,
-          athleteId,
-          rawValue,
-          points: scoreResult(rawValue, event),
-          notes: String(row.notes ?? ""),
-          submittedBy: String(row.submitted_by ?? ""),
-          source: "restore",
-        })
-        .onConflictDoNothing();
-      scoresBack += 1;
-    }
-  }
-
-  return scoresBack > 0
-    ? `Brought back ${name} and ${scoresBack} score${scoresBack === 1 ? "" : "s"}.`
-    : `Brought back ${name}.`;
+  return Boolean(deletion);
 }
 
 /**
@@ -754,16 +651,16 @@ export async function restoreChange(formData: FormData): Promise<ActionResult> {
     const message = await withActor({ actor, restoreOf: entryId }, async (tx) => {
       const [entry] = await tx.select().from(changeLog).where(eq(changeLog.id, entryId)).limit(1);
       if (!entry) throw new Error("That change is not in the history.");
+      if (entry.unrecoverable || (await deletedForGood(tx, athleteOf(entry)))) throw new Error(UNRECOVERABLE);
 
       if (entry.tableName === "results") return restoreResult(tx, entry);
-      if (entry.tableName === "athletes") return restoreAthlete(tx, entry);
-      throw new Error("Only scores and athletes can be restored from here.");
+      // Athletes come and go with their accounts (sign-up, and the admin's delete), never from here.
+      throw new Error("Only scores can be restored from here.");
     });
 
     revalidateScoreboard();
     return ok(message);
   } catch (error) {
-    if (isUniqueViolation(error)) return fail("That name is already taken by someone else on the roster.");
     return fail(describeError(error));
   }
 }

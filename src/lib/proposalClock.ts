@@ -10,7 +10,7 @@ import { closesAtAfterVote } from "./votes";
  * file is callable from the browser, and this is for other server code to call.
  *
  * Run it after anything that changes the votes or who is eligible to cast one: a vote or
- * a cleared vote, an account approved, an account removed.
+ * a cleared vote, an account created, an account removed.
  */
 
 /** Recompute one proposal's close time. The caller holds the proposal's row lock. */

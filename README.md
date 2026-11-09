@@ -28,12 +28,14 @@ The formula lives in one place, [`src/lib/scoring.ts`](src/lib/scoring.ts), and 
 used by the score grid's live preview, the CSV importer and the server, so the
 number you see before submitting is the number that lands on the board.
 
-## Anyone can submit — nothing can be lost
+## Change History — nothing can be lost
 
-There are no accounts. The safety net is the database: a trigger records every
-insert, update and delete against `app.results`, `app.events` and `app.athletes`
-into `audit.change_log`, **inside the same transaction as the change**. A score
-cannot exist without its audit row, and no code path can skip logging.
+Scores are entered by scorekeepers and the admin. The safety net is the database: a
+trigger records every insert, update and delete against `app.results` and `app.events`,
+and every athlete deletion from `app.athletes`, into `audit.change_log`, **inside the
+same transaction as the change**. A score cannot exist without its audit row, and no
+code path can skip logging. Sign-ups, renames and profiles aren't logged: only the
+athlete themselves or the admin can change them.
 
 That history is append-only. `UPDATE`, `DELETE` and `TRUNCATE` on
 `audit.change_log` all raise — for every role, the table owner included. Undoing
@@ -52,7 +54,7 @@ cp .env.example .env.local && cp .env.example .env
 
 npm run db:up          # Postgres 17 on port 5433, and S3Mock on 9090 for Vlog videos
 npm run db:migrate     # schema + audit triggers
-npm run db:seed        # ten events and the roster
+npm run db:seed        # the events, and ten athletes with their accounts and profiles
 # npm run db:seed -- --with-results   # ...plus sample scores to look at
 
 npm run dev
@@ -114,30 +116,29 @@ ten athletes and grows a row per athlete on the roster.
 ### The roster
 
 The grid shows everyone on the roster, and nothing on the Submit page adds, renames or
-removes an athlete. New athletes will join through a sign-up process; until that
-exists, the starting roster comes from the seed (`npm run db:seed`).
+removes an athlete. An athlete and their account are one thing:
 
+- **Joining:** athletes sign up at `/register`, which adds them to the roster with an
+  account and an empty profile, in every event at once. The admin can lock registration.
+  Locally, the seed (`npm run db:seed`) creates the starting ten, signing in as
+  `nick` / `nick1` and so on.
+- **Leaving:** the admin deletes the athlete (Admin page, or their profile page), which
+  takes their account, profile, scores and everything else with them. Change History
+  marks it **Unrecoverable**; athletes can't be restored from there.
+- The database enforces it: an athlete can't be committed without an account
+  (`drizzle/0014`). Create athletes with `src/lib/athleteAccounts.ts`.
 - Names are unique ignoring case, so "nick" is refused when "Nick" exists.
-- Changes already in Change History can still be undone there: **Undo** renames
-  someone back, or brings a deleted athlete back **together with every score deleted
-  with them**.
-- Bios and photos on the Athletes page are matched by name.
-- CSV import still adds anyone it does not recognise, and says so in its preview.
+- CSV import never adds athletes: a name that isn't on the roster is an error.
 
 ## Info: athletes and the event guide
 
-The **Info** tab is a menu with two pages. Both work with nothing written; you fill
-them in later by editing a file, the same way as the countdown quotes.
+The **Info** tab is a menu with two pages.
 
 **Info -> Athletes** lists everyone on the roster, one row each, with their photo,
-tagline, bio and where they stand. Edit `src/content/athletes.ts`:
-
-```ts
-{ name: "Nick", photo: "/athletes/nick.jpg", tagline: "Perennial runner-up", bio: "..." },
-```
-
-Every field except `name` is optional. Put photos in `public/athletes/`. Someone with
-no entry still gets a row, with their initials in place of a photo.
+tagline, bio and where they stand. Profiles live in the database (`app.athlete_profiles`):
+athletes write their own tagline and bio on their profile page, and the admin can edit
+anyone's. Photos are files in `public/athletes/`, set by the admin for now. Someone with
+no photo gets their initials instead.
 
 **Info -> Events** is a guide with a tab per event: what it is, how it's scored, and a
 demonstration. The scoring section writes itself from the event's two benchmarks (what
@@ -187,8 +188,8 @@ cornhole-shootout,Dana,11,windy
 ```
 
 Uploads are previewed before anything is written: how many scores are new, which
-would overwrite an existing one (and with what), who joins the roster, and what
-is wrong. **Any single bad row blocks the whole import** — a half-applied
+would overwrite an existing one (and with what), and what is wrong — including any
+athlete name that isn't on the roster, since athletes join by signing up. **Any single bad row blocks the whole import** — a half-applied
 scoreboard is worse than a rejected file. The commit re-validates server-side
 and runs as one transaction.
 
@@ -248,6 +249,11 @@ npm run deploy -- --bootstrap   # first time only
 npm run aws:db                  # first time, and after any new migration
 npm run deploy                  # every update
 ```
+
+Production is never seeded. It gets the events from the catalog (`src/lib/eventCatalog.ts`)
+when its database has none, or with `npm run aws:db -- --events`; athletes join by signing
+up. `npm run auth:athletes -- --prod` gives an account to anyone on the roster who doesn't
+have one (the starting roster, from before sign-up existed).
 
 [`infra/aws.md`](infra/aws.md) is the full runbook: what gets created, what it costs, how the
 database is protected, and how to tear it down. GitHub Pages cannot host this app, since it

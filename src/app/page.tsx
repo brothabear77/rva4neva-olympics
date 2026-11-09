@@ -6,12 +6,11 @@ import { Countdown } from "@/components/Countdown";
 import { QuoteCarousel } from "@/components/QuoteCarousel";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import { RankBadge } from "@/components/ui";
-import { ATHLETE_PROFILES } from "@/content/athletes";
 import { QUOTES } from "@/content/quotes";
 import { allScoresIn, getAthleteProfiles, getEventSummaries, getLeaderboard, getRecentResults, getWalkoutSongs } from "@/lib/queries";
 import { canScore, getSession } from "@/lib/auth";
 import { showChampion } from "@/lib/flags";
-import { mergeAthleteProfiles } from "@/lib/profiles";
+import { attachProfiles } from "@/lib/profiles";
 import { cleanQuotes } from "@/lib/quotes";
 import { formatMeasurement } from "@/lib/scoring";
 import { SITE, hasStarted } from "@/lib/site";
@@ -49,7 +48,7 @@ export default async function HomePage() {
   // still takes a list rather than one entry, so a scoring change that brought
   // ties back wouldn't silently drop a co-champion from the page.
   const championRows = finished && (await showChampion())
-    ? mergeAthleteProfiles(
+    ? attachProfiles(
         entries.map((e) => ({
           id: e.athleteId,
           name: e.athleteName,
@@ -57,9 +56,8 @@ export default async function HomePage() {
           totalPoints: e.totalPoints,
           rank: e.rank,
         })),
-        ATHLETE_PROFILES,
         await getAthleteProfiles(),
-      ).rows.filter((r) => r.athlete.rank === 1)
+      ).filter((r) => r.athlete.rank === 1)
     : [];
 
   // Only looked up once there's a champion to look it up for.

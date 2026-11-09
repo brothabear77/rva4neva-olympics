@@ -1,15 +1,12 @@
 import "dotenv/config";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { createInterface } from "node:readline";
-import { Writable } from "node:stream";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool, type PoolConfig } from "pg";
+import { Pool } from "pg";
 import * as schema from "../src/lib/schema";
-import { checkPassword } from "../src/lib/credentials";
+import { checkPassword, defaultUsername } from "../src/lib/credentials";
 import { hashPassword } from "../src/lib/password";
-import { ROOT, SITE_STACK, awsContext, capture, fail, flag, messageOf, option, stackOutputs, step } from "./aws";
+import { fail, flag, messageOf, option, step } from "./aws";
+import { ask, explainConnectionError, target } from "./dbTarget";
 
 /**
  * Create a staff login, or set a new password on one that exists:
@@ -29,76 +26,6 @@ import { ROOT, SITE_STACK, awsContext, capture, fail, flag, messageOf, option, s
  * credentials from Secrets Manager and TLS verified against certs/. That only works
  * from the admin IP address (see infra/aws.md), and it asks before writing anything.
  */
-
-const CA_BUNDLE = path.join(ROOT, "certs", "rds-global-bundle.pem");
-
-interface MasterSecret {
-  username: string;
-  password: string;
-  port: number;
-  dbname: string;
-}
-
-/** Ask a question on the terminal. `hidden` keeps what's typed off the screen, for passwords. */
-function ask(question: string, { hidden = false } = {}): Promise<string> {
-  let muted = false;
-  const output = new Writable({
-    write(chunk, _encoding, done) {
-      if (!muted) process.stdout.write(chunk);
-      done();
-    },
-  });
-  const rl = createInterface({ input: process.stdin, output, terminal: true });
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      rl.close();
-      if (hidden) process.stdout.write("\n");
-      resolve(answer);
-    });
-    muted = hidden;
-  });
-}
-
-/** Where to write, and how to describe it before asking. */
-function target(prod: boolean): { config: PoolConfig; label: string } {
-  if (!prod) {
-    const url = process.env.DATABASE_URL;
-    if (!url) fail("DATABASE_URL is not set (copy .env.example to .env), or pass --prod.");
-    return {
-      config: { connectionString: url, ssl: process.env.DATABASE_SSL === "false" ? false : undefined },
-      label: url.replace(/:[^:@/]*@/, ":****@"),
-    };
-  }
-
-  step("Checking your AWS session");
-  const context = awsContext();
-  console.log(`  account ${context.account}, region ${context.region}`);
-
-  step("Looking up the production database");
-  const outputs = stackOutputs(context, SITE_STACK);
-  if (!outputs.DatabaseEndpoint || !outputs.DatabaseMasterSecretArn) {
-    fail(`The ${SITE_STACK} stack is not deployed here yet, so there is no production database.`);
-  }
-  const master = JSON.parse(
-    capture("aws", ["secretsmanager", "get-secret-value", "--secret-id", outputs.DatabaseMasterSecretArn, "--query", "SecretString", "--output", "text"], {
-      env: context.env,
-    }),
-  ) as MasterSecret;
-
-  return {
-    config: {
-      host: outputs.DatabaseEndpoint,
-      port: Number(master.port) || 5432,
-      user: master.username,
-      password: master.password,
-      database: master.dbname,
-      ssl: { ca: readFileSync(CA_BUNDLE, "utf8") },
-      // A paused Aurora takes about 15 seconds to wake.
-      connectionTimeoutMillis: 60_000,
-    },
-    label: `PRODUCTION ${outputs.DatabaseEndpoint}/${master.dbname}`,
-  };
-}
 
 async function main() {
   const prod = flag("prod");
@@ -150,21 +77,11 @@ async function main() {
       await db.delete(schema.sessions).where(sql`${schema.sessions.accountId} = ${existing.id}`);
       console.log(`\n✓ Updated ${existing.staffName} (${role}). Its sessions were signed out.`);
     } else {
-      await db.insert(schema.accounts).values({ staffName: name, role, passwordHash });
+      await db.insert(schema.accounts).values({ staffName: name, username: defaultUsername(name), role, passwordHash });
       console.log(`\n✓ Created ${name} (${role}).`);
     }
   } catch (error) {
-    const code = (error as { code?: string }).code;
-    if (prod && (code === "ETIMEDOUT" || code === "ECONNREFUSED" || /timeout/i.test(messageOf(error)))) {
-      fail(
-        `Could not reach the database (${messageOf(error)}).\n\n` +
-          "It only accepts connections from the app and from one admin IP address. If this\n" +
-          "machine's address has changed since the last deploy, run `npm run deploy` again\n" +
-          "(or pass --admin-ip=1.2.3.4). Nothing was changed.",
-      );
-    }
-    if (code === "42P01") fail("The accounts table doesn't exist there yet. Run the migration first (npm run aws:db for production).");
-    throw error;
+    explainConnectionError(error, prod);
   } finally {
     await pool.end();
   }

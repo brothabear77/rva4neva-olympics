@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   initials,
   mediaProblem,
-  mergeAthleteProfiles,
+  attachProfiles,
   mergeEventGuides,
   paragraphs,
   resolveMedia,
@@ -186,70 +186,23 @@ describe("mediaProblem", () => {
   });
 });
 
-describe("mergeAthleteProfiles", () => {
-  const roster = [{ name: "Nick" }, { name: "Dana" }, { name: "Theo" }];
+describe("attachProfiles", () => {
+  const roster = [
+    { id: "a", name: "Nick" },
+    { id: "b", name: "Dana" },
+  ];
+  const stored = new Map([["a", { tagline: "From the DB", bio: "", photo: "/athletes/nick.jpg" }]]);
 
-  it("keeps roster order and attaches each profile", () => {
-    const { rows } = mergeAthleteProfiles(roster, [{ name: "Theo", bio: "t" }, { name: "Nick", bio: "n" }]);
-    expect(rows.map((r) => r.athlete.name)).toEqual(["Nick", "Dana", "Theo"]);
-    expect(rows.map((r) => r.profile?.bio ?? null)).toEqual(["n", null, "t"]);
+  it("keeps roster order and attaches each stored profile", () => {
+    const rows = attachProfiles(roster, stored);
+    expect(rows.map((r) => r.athlete.name)).toEqual(["Nick", "Dana"]);
+    expect(rows[0].profile).toEqual({ name: "Nick", tagline: "From the DB", bio: undefined, photo: "/athletes/nick.jpg" });
   });
 
-  it("matches ignoring case and extra spaces", () => {
-    const { rows, unmatched } = mergeAthleteProfiles(roster, [{ name: "  nICK  ", bio: "n" }]);
-    expect(rows[0].profile?.bio).toBe("n");
-    expect(unmatched).toEqual([]);
-  });
-
-  it("gives an athlete with no profile a null, not a missing row", () => {
-    const { rows } = mergeAthleteProfiles(roster, []);
-    expect(rows).toHaveLength(3);
-    expect(rows.every((r) => r.profile === null)).toBe(true);
-  });
-
-  it("reports a profile that matches nobody, so a typo does not vanish silently", () => {
-    const { unmatched } = mergeAthleteProfiles(roster, [{ name: "Nic", bio: "typo" }]);
-    expect(unmatched.map((p) => p.name)).toEqual(["Nic"]);
-  });
-
-  it("uses the first of two profiles for one name and reports the second", () => {
-    const { rows, duplicates } = mergeAthleteProfiles(roster, [
-      { name: "Nick", bio: "first" },
-      { name: "nick", bio: "second" },
-    ]);
-    expect(rows[0].profile?.bio).toBe("first");
-    expect(duplicates.map((p) => p.bio)).toEqual(["second"]);
-  });
-
-  it("ignores a profile with a blank name", () => {
-    const { rows, unmatched } = mergeAthleteProfiles(roster, [{ name: "   " }]);
-    expect(unmatched).toEqual([]);
-    expect(rows.every((r) => r.profile === null)).toBe(true);
-  });
-
-  describe("with profiles in the database", () => {
-    const withIds = [
-      { id: "a", name: "Nick" },
-      { id: "b", name: "Dana" },
-    ];
-    const stored = new Map([["a", { tagline: "From the DB", bio: "", photo: "/athletes/nick.jpg" }]]);
-
-    it("uses the database profile over the file's entry", () => {
-      const { rows } = mergeAthleteProfiles(withIds, [{ name: "Nick", tagline: "From the file", bio: "old" }], stored);
-      expect(rows[0].profile).toEqual({ name: "Nick", tagline: "From the DB", bio: undefined, photo: "/athletes/nick.jpg" });
-    });
-
-    it("reports the file entry it replaced, so it can be deleted", () => {
-      const { superseded, unmatched } = mergeAthleteProfiles(withIds, [{ name: "Nick", bio: "old" }], stored);
-      expect(superseded.map((p) => p.name)).toEqual(["Nick"]);
-      expect(unmatched).toEqual([]);
-    });
-
-    it("still uses the file for athletes with nothing in the database", () => {
-      const { rows, superseded } = mergeAthleteProfiles(withIds, [{ name: "Dana", bio: "d" }], stored);
-      expect(rows[1].profile?.bio).toBe("d");
-      expect(superseded).toEqual([]);
-    });
+  it("gives an athlete with no stored profile a null, not a missing row", () => {
+    const rows = attachProfiles(roster, stored);
+    expect(rows).toHaveLength(2);
+    expect(rows[1].profile).toBeNull();
   });
 });
 

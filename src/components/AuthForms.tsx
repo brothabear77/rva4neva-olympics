@@ -1,33 +1,28 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { requestClaim, signIn } from "@/lib/authActions";
-import { MIN_PASSWORD_LENGTH, checkPassword, normalizePhone } from "@/lib/credentials";
-import type { LoginChoice } from "@/lib/queries";
+import { signIn, signUp } from "@/lib/authActions";
+import { MAX_USERNAME_LENGTH, MIN_PASSWORD_LENGTH, checkPassword, checkUsername, defaultUsername } from "@/lib/credentials";
+import { MAX_NAME_LENGTH, normalizeName } from "@/lib/roster";
 import { PasswordInput } from "./PasswordInput";
 import { Banner } from "./ui";
 
 type Message = { tone: "ok" | "error"; text: string } | null;
 
-export function LoginForm({ choices, next }: { choices: LoginChoice[]; next: string }) {
+export function LoginForm({ next }: { next: string }) {
   const router = useRouter();
-  const [accountId, setAccountId] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<Message>(null);
   const [pending, startTransition] = useTransition();
 
-  if (choices.length === 0) {
-    return <p className="text-sm text-muted">Nobody has an account yet.</p>;
-  }
-
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!accountId) return setMessage({ tone: "error", text: "Pick your name." });
+    if (!username.trim()) return setMessage({ tone: "error", text: "Enter your username." });
     startTransition(async () => {
       setMessage(null);
-      const result = await signIn({ accountId, password });
+      const result = await signIn({ username, password });
       if (!result.ok) {
         setMessage({ tone: "error", text: result.message });
         setPassword("");
@@ -41,17 +36,20 @@ export function LoginForm({ choices, next }: { choices: LoginChoice[]; next: str
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <label className="label" htmlFor="loginWho">
-          Who are you?
+        <label className="label" htmlFor="loginUsername">
+          Username
         </label>
-        <select id="loginWho" value={accountId} onChange={(e) => setAccountId(e.target.value)} className="field">
-          <option value="">Pick your name</option>
-          {choices.map((c) => (
-            <option key={c.accountId} value={c.accountId}>
-              {c.label}
-            </option>
-          ))}
-        </select>
+        <input
+          id="loginUsername"
+          type="text"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className="field"
+        />
       </div>
       <div>
         <label className="label" htmlFor="loginPassword">
@@ -72,102 +70,95 @@ export function LoginForm({ choices, next }: { choices: LoginChoice[]; next: str
   );
 }
 
-export function ClaimForm({ athletes }: { athletes: Array<{ id: string; name: string }> }) {
-  const [form, setForm] = useState({ athleteId: "", phone: "", password: "", confirm: "" });
+export function RegisterForm() {
+  const router = useRouter();
+  const [form, setForm] = useState({ name: "", username: "", password: "", confirm: "" });
+  // Until they type their own, the name suggests a username.
+  const [usernameEdited, setUsernameEdited] = useState(false);
   const [message, setMessage] = useState<Message>(null);
-  const [done, setDone] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  if (done && message) {
-    return (
-      <div className="space-y-4">
-        <Banner tone="ok">{message.text}</Banner>
-        <Link href="/login" className="btn btn-ghost">
-          Go to sign in
-        </Link>
-      </div>
-    );
-  }
-
-  const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+  const set = (field: "password" | "confirm") => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm({ ...form, [field]: e.target.value });
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    // The same checks the server runs, so a typo is caught before the round trip.
-    if (!form.athleteId) return setMessage({ tone: "error", text: "Pick your name from the list." });
-    const phone = normalizePhone(form.phone);
-    if (!phone.ok) return setMessage({ tone: "error", text: phone.error });
+    // The same checks the server runs (bar the name being taken), so a typo is caught before the round trip.
+    if (normalizeName(form.name) === "") return setMessage({ tone: "error", text: "Enter your name." });
+    const username = checkUsername(form.username);
+    if (!username.ok) return setMessage({ tone: "error", text: username.error });
     const password = checkPassword(form.password, form.confirm);
     if (!password.ok) return setMessage({ tone: "error", text: password.error });
 
     startTransition(async () => {
       setMessage(null);
-      const result = await requestClaim(form);
-      setMessage({ tone: result.ok ? "ok" : "error", text: result.message });
-      if (result.ok) setDone(true);
+      const result = await signUp(form);
+      if (!result.ok) return setMessage({ tone: "error", text: result.message });
+      router.push("/profile");
+      router.refresh();
     });
   };
 
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <label className="label" htmlFor="claimWho">
-          Which athlete are you?
-        </label>
-        <select id="claimWho" value={form.athleteId} onChange={set("athleteId")} className="field">
-          <option value="">Pick your name</option>
-          {athletes.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label className="label" htmlFor="claimPhone">
-          Phone number
+        <label className="label" htmlFor="registerName">
+          Name
         </label>
         <input
-          id="claimPhone"
-          type="tel"
-          autoComplete="tel"
-          value={form.phone}
-          onChange={set("phone")}
-          placeholder="Only the admin sees it, and it's deleted once they decide"
+          id="registerName"
+          autoComplete="nickname"
+          value={form.name}
+          onChange={(e) => {
+            const name = e.target.value;
+            setForm({ ...form, name, username: usernameEdited ? form.username : defaultUsername(name) });
+          }}
+          maxLength={MAX_NAME_LENGTH * 2}
           className="field"
         />
+        <p className="mt-1.5 text-xs text-muted">How you show up on the leaderboard. You can change it later.</p>
       </div>
       <div>
-        <label className="label" htmlFor="claimPassword">
-          Password
+        <label className="label" htmlFor="registerUsername">
+          Username
         </label>
         <input
-          id="claimPassword"
-          type="password"
+          id="registerUsername"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          value={form.username}
+          onChange={(e) => {
+            setUsernameEdited(true);
+            setForm({ ...form, username: e.target.value });
+          }}
+          maxLength={MAX_USERNAME_LENGTH}
+          className="field"
+        />
+        <p className="mt-1.5 text-xs text-muted">What you type to sign in. Only you see it.</p>
+      </div>
+      <div>
+        <label className="label" htmlFor="registerPassword">
+          Password
+        </label>
+        <PasswordInput
+          id="registerPassword"
           autoComplete="new-password"
           value={form.password}
           onChange={set("password")}
           placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-          className="field"
         />
       </div>
       <div>
-        <label className="label" htmlFor="claimConfirm">
+        <label className="label" htmlFor="registerConfirm">
           Password again
         </label>
-        <input
-          id="claimConfirm"
-          type="password"
-          autoComplete="new-password"
-          value={form.confirm}
-          onChange={set("confirm")}
-          className="field"
-        />
+        <PasswordInput id="registerConfirm" autoComplete="new-password" value={form.confirm} onChange={set("confirm")} />
       </div>
       {message ? <Banner tone={message.tone}>{message.text}</Banner> : null}
       <button type="submit" disabled={pending} className="btn">
-        {pending ? "Sending…" : "Send claim"}
+        {pending ? "Signing up…" : "Sign up"}
       </button>
     </form>
   );

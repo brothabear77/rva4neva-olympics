@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { createHash, randomBytes } from "node:crypto";
-import { and, eq, gt, lt } from "drizzle-orm";
+import { and, eq, gt, lt, ne } from "drizzle-orm";
 import { db } from "./db";
 import { accounts, athletes, sessions, type AccountRole } from "./schema";
 import { isMigrationPending } from "./walkout";
@@ -111,6 +111,13 @@ export async function createSession(accountId: string): Promise<void> {
     path: "/",
     expires: expiresAt,
   });
+}
+
+/** Sign an account out everywhere except this browser, e.g. after its password changed. */
+export async function destroyOtherSessions(accountId: string): Promise<void> {
+  const token = (await cookies()).get(COOKIE)?.value;
+  const keep = token ? hashToken(token) : "";
+  await db.delete(sessions).where(and(eq(sessions.accountId, accountId), ne(sessions.id, keep)));
 }
 
 export async function destroySession(): Promise<void> {

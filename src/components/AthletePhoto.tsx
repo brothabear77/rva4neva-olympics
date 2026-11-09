@@ -19,7 +19,7 @@ import { initials } from "@/lib/profiles";
  * exactly the crop this avoids.
  *
  * The no-photo/failed-to-load case is the point of this being a component. A
- * typo in a photo path in src/content/athletes.ts would otherwise put a
+ * typo in a stored photo path would otherwise put a
  * broken-image box on the public page. The image is server-rendered, so it can
  * fail before React has attached its error handler, and `onError` alone would
  * never hear about it; the effect checks for an image that has already failed

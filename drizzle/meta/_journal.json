@@ -64,6 +64,48 @@
       "when": 1791651886286,
       "tag": "0008_confession_videos",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794249376221,
+      "tag": "0009_athlete_profiles_to_db",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794252794537,
+      "tag": "0010_account_usernames",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794253516026,
+      "tag": "0011_site_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794253917516,
+      "tag": "0012_drop_signup_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794256534522,
+      "tag": "0013_unrecoverable_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794258345467,
+      "tag": "0014_athletes_need_accounts",
+      "breakpoints": true
     }
   ]
 }

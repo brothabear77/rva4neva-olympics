@@ -44,7 +44,6 @@ const OPERATION_LABEL: Record<string, string> = {
 /** What undoing this entry does, in words: "Undo — back to 26.5", "Restore 28", … */
 function undoText(entry: ChangeLogRow): string {
   if (entry.operation === "INSERT" && entry.tableName === "results") return "Undo — remove this score";
-  if (entry.operation === "INSERT" && entry.tableName === "athletes") return "Undo — remove this athlete";
   const verb = entry.operation === "INSERT" || entry.operation === "DELETE" ? "Restore " : "Undo — back to ";
   return `${verb}${entry.restoreTo}`;
 }
@@ -89,6 +88,11 @@ export function ChangeLogTable({
                     {OPERATION_LABEL[entry.operation] ?? entry.operation}
                   </span>{" "}
                   {entry.label}
+                  {entry.removedWithAccount ? (
+                    <span className="ml-2 rounded border border-[var(--edge)] px-1.5 py-0.5 align-middle text-[0.65rem] tracking-wider text-muted">
+                      Unrecoverable
+                    </span>
+                  ) : null}
                 </p>
                 <p className="mt-0.5 text-xs text-muted">
                   {entry.changedBy} ·{" "}
@@ -101,7 +105,17 @@ export function ChangeLogTable({
 
               <div className="flex shrink-0 items-center gap-3">
                 <span className="tnum text-xs text-muted">#{entry.id}</span>
-                {canRestore && entry.restoreTo ? (
+                {canRestore && entry.restoreTo && entry.unrecoverable ? (
+                  // Shown, but greyed out and inert: the athlete was deleted with their
+                  // account, so there's nothing to restore to. The action refuses it too.
+                  <span
+                    aria-disabled="true"
+                    title="Deleted along with their account, so this can't be restored."
+                    className="cursor-not-allowed text-xs text-muted opacity-40"
+                  >
+                    {undoText(entry)}
+                  </span>
+                ) : canRestore && entry.restoreTo ? (
                   // The value is named on the button: on an entry that reads
                   // "26.5 → 28", "Restore" alone does not say which you get.
                   <button

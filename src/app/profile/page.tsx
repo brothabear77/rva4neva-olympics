@@ -2,11 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AthletePhoto } from "@/components/AthletePhoto";
 import { NameEditor } from "@/components/NameEditor";
+import { DeleteAthleteButton } from "@/components/DeleteAthleteButton";
 import { ProfileEditor } from "@/components/ProfileEditor";
+import { SignInDetails } from "@/components/SignInDetails";
 import { WalkoutPicker } from "@/components/WalkoutSong";
 import { PageHeader } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
-import { getProfile, getWalkoutSongs } from "@/lib/queries";
+import { getProfile, getUsername, getWalkoutSongs } from "@/lib/queries";
 import { spotifyConfigured } from "@/lib/spotify";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +35,7 @@ export default async function ProfilePage(props: PageProps<"/profile">) {
   const [profile, walkoutSongs] = await Promise.all([getProfile(athleteId), getWalkoutSongs()]);
   if (!profile) redirect(isAdmin(session) ? "/info/athletes" : "/");
   const own = athleteId === session.athleteId;
+  const username = own ? await getUsername(session.accountId) : null;
 
   return (
     <>
@@ -53,6 +56,7 @@ export default async function ProfilePage(props: PageProps<"/profile">) {
           <NameEditor athleteId={profile.athleteId} name={profile.name} key={profile.name} />
           <ProfileEditor athleteId={profile.athleteId} name={profile.name} tagline={profile.tagline} bio={profile.bio} />
           <p className="mt-6 text-xs text-muted">Photos can&apos;t be changed here yet. Send a new one to the admin.</p>
+          {isAdmin(session) && !own ? <DeleteAthleteButton athleteId={profile.athleteId} name={profile.name} /> : null}
         </div>
       </div>
 
@@ -70,6 +74,18 @@ export default async function ProfilePage(props: PageProps<"/profile">) {
           />
         </div>
       </section>
+
+      {username ? (
+        <section aria-labelledby="signin-heading" className="mt-10">
+          <p className="eyebrow mb-2">Private to you</p>
+          <h2 id="signin-heading" className="mb-4 font-display text-2xl font-bold uppercase tracking-wide text-paper">
+            Sign-in details
+          </h2>
+          <div className="card p-4 sm:p-6">
+            <SignInDetails username={username} />
+          </div>
+        </section>
+      ) : null}
     </>
   );
 }

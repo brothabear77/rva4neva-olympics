@@ -2,13 +2,14 @@
 # Keep the local database in step with what a push to main will do to production.
 #
 # Mirrors .github/workflows/deploy.yml: production migrates when a push touches drizzle/,
-# and (pre-kickoff only) reseeds when it touches scripts/seed.ts. Here we do the same to
-# the local Docker database. Never blocks the push: if the DB isn't reachable (Colima or
+# and (pre-kickoff only) re-syncs its events when it touches src/lib/eventCatalog.ts.
+# Here we do the same to the local Docker database. (Production is never seeded, so
+# changes to scripts/seed.ts don't trigger anything; run `npm run db:seed` yourself.) Never blocks the push: if the DB isn't reachable (Colima or
 # `npm run db:up` not running) it prints a warning and lets the push through.
 
 zero=0000000000000000000000000000000000000000
 migrate=false
-seed=false
+events=false
 
 while read -r local_ref local_sha remote_ref remote_sha; do
   [ "$local_sha" = "$zero" ] && continue # deleting a branch
@@ -18,13 +19,13 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     base=$remote_sha
   fi
   if [ -z "$base" ]; then
-    migrate=true; seed=true; continue
+    migrate=true; events=true; continue
   fi
   git diff --quiet "$base" "$local_sha" -- drizzle/ || migrate=true
-  git diff --quiet "$base" "$local_sha" -- scripts/seed.ts || seed=true
+  git diff --quiet "$base" "$local_sha" -- src/lib/eventCatalog.ts || events=true
 done
 
-if [ "$migrate" = false ] && [ "$seed" = false ]; then
+if [ "$migrate" = false ] && [ "$events" = false ]; then
   exit 0
 fi
 
@@ -35,13 +36,13 @@ if [ "$migrate" = true ]; then
   npm run --silent db:migrate || echo "pre-push: WARNING local migration failed (is the DB up? colima start && npm run db:up). Push continues."
 fi
 
-if [ "$seed" = true ]; then
+if [ "$events" = true ]; then
   started=$(npx --no-install tsx -e "import { hasStarted } from './src/lib/site'; process.stdout.write(String(hasStarted()));" 2>/dev/null)
   if [ "$started" = "true" ]; then
-    echo "pre-push: scripts/seed.ts changed, but the games have started; production won't reseed, so neither do we."
+    echo "pre-push: the event catalog changed, but the games have started; production won't re-sync, so neither do we."
   else
-    echo "pre-push: scripts/seed.ts changed, reseeding locally..."
-    npm run --silent db:seed || echo "pre-push: WARNING local seed failed. Push continues."
+    echo "pre-push: the event catalog changed, re-syncing events locally..."
+    npx --no-install tsx scripts/sync-events.ts || echo "pre-push: WARNING local events sync failed. Push continues."
   fi
 fi
 

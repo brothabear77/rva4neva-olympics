@@ -131,15 +131,12 @@ export interface PreviewRow {
   notes?: string;
   previousRawValue?: number;
   previousPoints?: number;
-  /** True when the athlete is not yet on the roster and will be added. */
-  createsAthlete?: boolean;
   error?: string;
 }
 
 export interface ImportPreview {
   rows: PreviewRow[];
   counts: Record<ImportAction, number>;
-  newAthletes: string[];
   fileErrors: string[];
   missingColumns: string[];
   /** Whether committing is allowed — any error row blocks the whole import. */
@@ -183,7 +180,6 @@ export function buildImportPreview(
   const existing = new Map(existingResults.map((r) => [resultKey(r.eventId, r.athleteId), r]));
 
   const seen = new Map<string, number>();
-  const newAthletes = new Set<string>();
   const counts: Record<ImportAction, number> = { create: 0, update: 0, unchanged: 0, error: 0 };
 
   const rows: PreviewRow[] = parsed.rows.map((row) => {
@@ -201,7 +197,10 @@ export function buildImportPreview(
     const rawValue = Number(row.rawValue);
     if (!Number.isFinite(rawValue)) return fail(`"${row.rawValue}" is not a number`);
 
+    // Athletes join by signing up, never from a file: an unknown name is a typo or someone
+    // who hasn't signed up yet, and either way the row can't be scored.
     const athlete = athleteByName.get(row.athleteName.toLowerCase());
+    if (!athlete) return fail(`No athlete named "${row.athleteName}". They need to sign up first.`);
 
     // Two rows scoring the same person in the same event: we cannot know which
     // one is meant, so refuse rather than let last-write-wins decide silently.
@@ -213,14 +212,10 @@ export function buildImportPreview(
     seen.set(dedupeKey, row.line);
 
     const points = scoreResult(rawValue, event);
-    const previous = athlete ? existing.get(resultKey(event.id, athlete.id)) : undefined;
+    const previous = existing.get(resultKey(event.id, athlete.id));
 
     let action: ImportAction = "create";
-    if (previous) {
-      action = previous.rawValue === rawValue ? "unchanged" : "update";
-    } else if (!athlete) {
-      newAthletes.add(row.athleteName);
-    }
+    if (previous) action = previous.rawValue === rawValue ? "unchanged" : "update";
 
     return {
       ...base,
@@ -234,7 +229,6 @@ export function buildImportPreview(
       notes: row.notes,
       previousRawValue: previous?.rawValue,
       previousPoints: previous?.points,
-      createsAthlete: !athlete,
     };
   });
 
@@ -249,7 +243,6 @@ export function buildImportPreview(
   return {
     rows,
     counts,
-    newAthletes: [...newAthletes],
     fileErrors: parsed.fileErrors,
     missingColumns: parsed.missingColumns,
     canCommit,

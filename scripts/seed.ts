@@ -1,26 +1,69 @@
 import "dotenv/config";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { EVENTS } from "../src/lib/eventCatalog";
 import * as schema from "../src/lib/schema";
 import { scoreResult } from "../src/lib/scoring";
+import { createAthlete, initialPassword } from "../src/lib/athleteAccounts";
+import { defaultUsername } from "../src/lib/credentials";
+import { hashPassword } from "../src/lib/password";
+import { syncEvents } from "./eventSync";
 
 /**
- * Seed the eleven events (src/lib/eventCatalog.ts) and the roster.
+ * Fill a LOCAL database: the events (src/lib/eventCatalog.ts, via eventSync.ts), and the
+ * starting roster, each athlete with their account and profile. Production is never
+ * seeded: it gets its events from `npm run aws:db -- --events`, and its athletes sign up
+ * (see infra/aws.md). This refuses to run against anything but a local database.
  *
- * Events and athletes are upserted, so re-running is safe and never touches
- * scores that have already been submitted. Pass --with-results to also load
- * sample scores for demoing the leaderboard:
+ * Re-running is safe: events are re-synced, athletes already there are left alone, and
+ * submitted scores are never touched. Pass --with-results to also load sample scores:
  *
  *   npm run db:seed -- --with-results
+ *
+ * New athletes sign in with their name lowercase as both username and password + 1
+ * ("nick" / "nick1"), like `npm run auth:athletes`.
  */
 
-// Kept in sync with src/content/athletes.ts by hand: that file adds photos, taglines
-// and bios for whoever is on the roster, but the roster itself lives here.
-const ATHLETES = [
-  "Nick", "Mena", "Allen", "Ashley", "David", "Marco", "Mohit", "Ahmed", "Nat", "Pam",
-] as const;
+interface SeedAthlete {
+  name: string;
+  tagline: string;
+  bio: string;
+  /** A file in public/athletes/. */
+  photo: string;
+}
+
+// The starting roster and their original profiles (the same ones drizzle/0009 moved into
+// production's database). Only used for athletes the seed creates.
+const ATHLETES: SeedAthlete[] = [
+  { name: "Nick", photo: "/athletes/nick.jpg", tagline: "BDN", bio: "Former D1 athlete and sometimes shows he's still got it, even if it was over 3 years and 40 pounds ago." },
+  { name: "Mena", photo: "/athletes/mena.png", tagline: "Me? Nah.", bio: "Biggest brain, bigger heart. Won't help him much here but we love him anyway." },
+  { name: "Allen", photo: "/athletes/allen.png", tagline: "Where them kids at?", bio: "Avid pickleballer, and fan of Michael Jackson for the wrong reasons. Thankfully we're all adults here." },
+  { name: "Ashley", photo: "/athletes/ashley.png", tagline: "", bio: "Small but mighty. Unfortunately maybe too small, but I wouldn't say that to her face." },
+  { name: "David", photo: "/athletes/david.png", tagline: "Ah hahaha", bio: "You'd think someone who likes to play sports would be more coordinated. If you see him fighting a dog, help the dog." },
+  { name: "Marco", photo: "/athletes/marco.png", tagline: "Mohit is a better athlete than David; I would still beat him at tennis", bio: `A gentleman and a scholar. Jury's still out on what he can actually do, but since he wanted to add a 5k, "not much" might be a good answer.` },
+  { name: "Mohit", photo: "/athletes/mohit.png", tagline: "", bio: "More of an aesthetic than an athlete. Claims he did high jump in school, but the consensus is he didn't do it well." },
+  { name: "Ahmed", photo: "/athletes/ahmed.jpg", tagline: "", bio: "The only one who got paid to play sports. Also the only one to hurt themselves in a geriatric sport. He may only need the one hamstring he's got left to compete with this group." },
+  { name: "Nat", photo: "/athletes/nat.png", tagline: "", bio: "Not sure anyone is expecting much competition from her. Could pull out an upset if some H-Town or Memphis rap comes on though." },
+  { name: "Pam", photo: "/athletes/pam.png", tagline: "P$", bio: "The embodiment of self-belief, and the reason we're not balancing by gender. If you've seen her gymnastics videos from the early 2000s, you'd know balance wasn't her strong suit anyway." },
+];
+
+/** Hosts that mean "this machine": the Docker database from docker-compose.yml. */
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]", "db"]);
+
+function assertLocal(url: string) {
+  let host = "";
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    throw new Error("DATABASE_URL isn't a valid connection string.");
+  }
+  if (!LOCAL_HOSTS.has(host)) {
+    throw new Error(
+      `The seed only fills a local database, and DATABASE_URL points at ${host}. ` +
+        "Production gets its events from `npm run aws:db -- --events` and its athletes from sign-ups.",
+    );
+  }
+}
 
 /** Sample scores — only loaded with --with-results. */
 const SAMPLE: Array<[string, string, number]> = [
@@ -62,6 +105,7 @@ async function main() {
   const withResults = process.argv.includes("--with-results");
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is not set (copy .env.example to .env).");
+  assertLocal(url);
 
   const pool = new Pool({
     connectionString: url,
@@ -72,35 +116,24 @@ async function main() {
 
   try {
     await db.transaction(async (tx) => {
+      console.log(`Events: ${await syncEvents(tx)}`);
+
       // Tag seeded rows in the changelog so they are distinguishable from
       // scores people actually submitted.
       await tx.execute(sql`select set_config('app.actor', 'seed script', true)`);
 
-      const events = await tx
-        .insert(schema.events)
-        .values(EVENTS.map((e) => ({ ...e })))
-        .onConflictDoUpdate({
-          target: schema.events.slug,
-          set: {
-            name: sql`excluded.name`,
-            description: sql`excluded.description`,
-            unitLabel: sql`excluded.unit_label`,
-            day: sql`excluded.day`,
-            sortOrder: sql`excluded.sort_order`,
-            benchmarkStandard: sql`excluded.benchmark_standard`,
-            benchmarkZero: sql`excluded.benchmark_zero`,
-            decimals: sql`excluded.decimals`,
-          },
-        })
-        .returning();
-      console.log(`Events: ${events.length}`);
-
-      const athletes = await tx
-        .insert(schema.athletes)
-        .values(ATHLETES.map((name) => ({ name })))
-        .onConflictDoNothing()
-        .returning();
-      console.log(`Athletes: ${athletes.length} new (${ATHLETES.length} in roster)`);
+      // Every athlete needs an account (drizzle/0014), so a new one gets the same starting
+      // login `npm run auth:athletes` hands out. Athletes already there are left alone.
+      const existing = new Set((await tx.select({ name: schema.athletes.name }).from(schema.athletes)).map((a) => a.name.toLowerCase()));
+      const added: string[] = [];
+      for (const { name, tagline, bio, photo } of ATHLETES) {
+        if (existing.has(name.toLowerCase())) continue;
+        const { athleteId } = await createAthlete(tx, { name, username: defaultUsername(name), passwordHash: await hashPassword(initialPassword(name)) });
+        await tx.update(schema.athleteProfiles).set({ tagline, bio, photo }).where(eq(schema.athleteProfiles.athleteId, athleteId));
+        added.push(name);
+      }
+      console.log(`Athletes: ${added.length} new (${ATHLETES.length} in roster)`);
+      if (added.length) console.log(`  New logins: username = name lowercase, password = name lowercase + 1 (e.g. ${defaultUsername(added[0])} / ${initialPassword(added[0])})`);
 
       if (!withResults) {
         console.log("No results loaded. Re-run with --with-results for sample scores.");

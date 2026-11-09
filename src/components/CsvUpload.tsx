@@ -172,13 +172,6 @@ function ImportPreviewPanel({ preview }: { preview: ImportPreview }) {
         </Banner>
       ) : null}
 
-      {preview.newAthletes.length > 0 ? (
-        <p className="text-sm text-muted">
-          Joining the roster:{" "}
-          <span className="text-paper">{preview.newAthletes.join(", ")}</span>
-        </p>
-      ) : null}
-
       <div className="card max-h-96 overflow-auto">
         <table className="w-full border-collapse text-left text-sm">
           <caption className="sr-only">Rows found in the uploaded file</caption>
@@ -232,9 +225,7 @@ function PreviewRowView({ row }: { row: PreviewRow }) {
         ) : (
           <span className="mt-0.5 block text-xs text-muted">
             {row.action === "create"
-              ? row.createsAthlete
-                ? "New score · adds athlete"
-                : "New score"
+              ? "New score"
               : row.action === "update"
                 ? `Replaces ${formatMeasurement(row.previousRawValue ?? 0, row.decimals ?? 2)} (${row.previousPoints} pts)`
                 : "Already recorded"}
