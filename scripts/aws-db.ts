@@ -22,14 +22,17 @@ import {
 /**
  * Set up the production database, and connect the app to it.
  *
- *   npm run aws:db                      create the tables, give the app its login, restart the app
- *   npm run aws:db -- --seed            also (re)load the ten events and the starting roster
- *   npm run aws:db -- --with-results    same, plus sample scores (for a demo; not for the real event)
+ *   npm run aws:db                 create the tables, give the app its login, restart the app
+ *   npm run aws:db -- --events     also re-sync the events from src/lib/eventCatalog.ts
  *
  * Safe to run again: migrations only apply what is new, the app's login and permissions are
- * re-asserted, and the seed runs by itself only when the database has no events. deploy.ts
- * runs it after every laptop deploy for exactly this reason — there is no second command to
- * remember.
+ * re-asserted, and the events are loaded by themselves only when the database has none.
+ * deploy.ts runs it after every laptop deploy for exactly this reason — there is no second
+ * command to remember.
+ *
+ * Production is never seeded. It gets the event catalog (scripts/sync-events.ts) and
+ * nothing else: athletes join by signing up, and `npm run auth:athletes -- --prod` gives
+ * accounts to anyone on the roster from before sign-up existed.
  *
  * It runs as the database owner, which is why the database has to let the caller's IP address
  * in first. The app never gets those credentials: it gets a second login that can read and
@@ -41,9 +44,9 @@ import {
  * laptop never passes --ci; it already has a standing admin-ip rule from its last deploy, so
  * it goes straight to the tables. --ci is implied by GITHUB_ACTIONS=true, same as deploy.ts.
  *
- * The workflow also passes --seed itself, but only when a push touches scripts/seed.ts
+ * The workflow also passes --events itself, but only when a push changes the event catalog
  * before the event has started — see the `diff` step in .github/workflows/deploy.yml. After
- * kickoff a seed.ts change deploys the code but never reseeds automatically, so it can't
+ * kickoff a catalog change deploys the code but never re-syncs automatically, so it can't
  * silently overwrite a benchmark someone retuned live through the site's own forms.
  */
 
@@ -131,6 +134,9 @@ async function connectAsOwner(master: MasterSecret): Promise<Client> {
 
 async function main() {
   const ci = flag("ci") || process.env.GITHUB_ACTIONS === "true";
+  if (flag("seed") || flag("with-results")) {
+    fail("Production is never seeded any more. Use --events to re-sync the event catalog; athletes join by signing up.");
+  }
 
   step("Checking your AWS session");
   const context = awsContext();
@@ -173,7 +179,7 @@ async function migrateAndRestart(context: AwsContext, outputs: Record<string, st
   const port = Number(master.port) || 5432;
   console.log(`  database ${host}`);
 
-  // Child processes (the migrator, the seeder) connect as the owner. Node must be told to
+  // Child processes (the migrator, the events sync) connect as the owner. Node must be told to
   // trust Amazon's certificate authority before it starts, which is what NODE_EXTRA_CA_CERTS
   // does. DATABASE_SSL is cleared so a local .env cannot switch TLS off.
   const ownerEnv = {
@@ -236,11 +242,11 @@ async function migrateAndRestart(context: AwsContext, outputs: Record<string, st
 
     const { rows } = await owner.query<{ count: string }>("SELECT count(*) FROM app.events");
     const empty = Number(rows[0].count) === 0;
-    if (empty || flag("seed") || flag("with-results")) {
-      step(empty ? "Loading the events and starting roster (the database has none)" : "Reloading the events and roster (--seed)");
-      run("npx", ["tsx", "scripts/seed.ts", ...(flag("with-results") ? ["--with-results"] : [])], { cwd: ROOT, env: ownerEnv });
+    if (empty || flag("events")) {
+      step(empty ? "Loading the events (the database has none)" : "Re-syncing the events from the catalog (--events)");
+      run("npx", ["tsx", "scripts/sync-events.ts"], { cwd: ROOT, env: ownerEnv });
     } else {
-      console.log(`\n  ${rows[0].count} events already loaded; leaving the events and roster alone (use --seed to reload them).`);
+      console.log(`\n  ${rows[0].count} events already loaded; leaving them alone (use --events to re-sync them).`);
     }
   } finally {
     await owner.end();
