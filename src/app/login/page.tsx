@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/AuthForms";
 import { PageHeader } from "@/components/ui";
 import { getSession } from "@/lib/auth";
-import { getLoginChoices } from "@/lib/queries";
+import { registrationLocked } from "@/lib/siteSettings";
 
 export const dynamic = "force-dynamic";
 
@@ -18,28 +18,29 @@ function safeNext(next: string | string[] | undefined): string {
 export default async function LoginPage(props: PageProps<"/login">) {
   const next = safeNext((await props.searchParams).next);
   if (await getSession()) redirect(next);
-
-  const choices = await getLoginChoices();
+  const locked = await registrationLocked();
 
   return (
     <>
       <PageHeader
         eyebrow="Accounts"
         title="Sign in"
-        description="Pick your name and enter your password."
+        description="Enter your username and password."
       />
 
       <div className="card max-w-md p-4 sm:p-6">
-        <LoginForm choices={choices} next={next} />
+        <LoginForm next={next} />
       </div>
 
-      <p className="mt-6 max-w-md text-sm text-muted">
-        On the roster but not in the list?{" "}
-        <Link href="/claim" className="text-accent underline-offset-4 hover:underline">
-          Claim your athlete
-        </Link>{" "}
-        and the admin will approve it.
-      </p>
+      {locked ? null : (
+        <p className="mt-6 max-w-md text-sm text-muted">
+          New to the games?{" "}
+          <Link href="/register" className="text-accent underline-offset-4 hover:underline">
+            Sign up
+          </Link>{" "}
+          to join.
+        </p>
+      )}
     </>
   );
 }

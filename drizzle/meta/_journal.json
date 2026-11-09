@@ -71,6 +71,13 @@
       "when": 1794249376221,
       "tag": "0009_athlete_profiles_to_db",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794252794537,
+      "tag": "0010_account_usernames",
+      "breakpoints": true
     }
   ]
 }

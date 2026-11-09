@@ -1,5 +1,5 @@
 /**
- * What's accepted as a password or a phone number on the claim form. Shared by the
+ * What's accepted as a username or password. Shared by the
  * form (for instant feedback) and the server (which checks again).
  */
 
@@ -17,18 +17,22 @@ export function checkPassword(password: string, confirm?: string): Check<string>
   return { ok: true, value: password };
 }
 
-/**
- * A US phone number, as just its ten digits: "(804) 555-0123", "804.555.0123" and
- * "+1 804 555 0123" are all "8045550123".
- */
-export function normalizePhone(text: string): Check<string> {
-  let digits = text.replace(/\D/g, "");
-  if (digits.length === 11 && digits.startsWith("1")) digits = digits.slice(1);
-  if (digits.length !== 10) return { ok: false, error: "Enter a 10-digit phone number." };
-  return { ok: true, value: digits };
+export const MIN_USERNAME_LENGTH = 3;
+export const MAX_USERNAME_LENGTH = 30;
+
+/** Lowercase letters, digits, and . _ - ; stored lowercase, compared ignoring case. */
+export function checkUsername(text: string): Check<string> {
+  const username = text.trim().toLowerCase();
+  if (username.length < MIN_USERNAME_LENGTH || username.length > MAX_USERNAME_LENGTH) {
+    return { ok: false, error: `Use ${MIN_USERNAME_LENGTH} to ${MAX_USERNAME_LENGTH} characters.` };
+  }
+  if (!/^[a-z0-9][a-z0-9._-]*$/.test(username)) {
+    return { ok: false, error: "Use only letters, numbers, dots, dashes and underscores." };
+  }
+  return { ok: true, value: username };
 }
 
-/** "8045550123" -> "(804) 555-0123", for the admin's list. */
-export function formatPhone(digits: string): string {
-  return digits.length === 10 ? `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}` : digits;
+/** A starting username from a display name: "Dana Scully" -> "danascully". */
+export function defaultUsername(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }

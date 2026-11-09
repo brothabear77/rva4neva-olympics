@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkPassword, formatPhone, normalizePhone } from "../credentials";
+import { checkPassword, checkUsername, defaultUsername } from "../credentials";
 import { hashPassword, verifyPassword } from "../password";
 
 describe("hashPassword / verifyPassword", () => {
@@ -38,20 +38,27 @@ describe("checkPassword", () => {
   });
 });
 
-describe("normalizePhone", () => {
-  it("keeps just the ten digits, however it was typed", () => {
-    for (const typed of ["(804) 555-0123", "804.555.0123", "+1 804 555 0123", "18045550123"]) {
-      expect(normalizePhone(typed)).toEqual({ ok: true, value: "8045550123" });
-    }
+describe("checkUsername", () => {
+  it("lowercases and trims", () => {
+    expect(checkUsername("  NickH ")).toEqual({ ok: true, value: "nickh" });
   });
 
-  it("rejects anything that is not ten digits", () => {
-    expect(normalizePhone("555-0123").ok).toBe(false);
-    expect(normalizePhone("28045550123").ok).toBe(false);
-    expect(normalizePhone("").ok).toBe(false);
+  it("allows dots, dashes and underscores after the first character", () => {
+    expect(checkUsername("a.b-c_d")).toEqual({ ok: true, value: "a.b-c_d" });
   });
 
-  it("formats ten digits for reading", () => {
-    expect(formatPhone("8045550123")).toBe("(804) 555-0123");
+  it("rejects too short, too long, spaces and odd characters", () => {
+    expect(checkUsername("ab").ok).toBe(false);
+    expect(checkUsername("a".repeat(31)).ok).toBe(false);
+    expect(checkUsername("nick h").ok).toBe(false);
+    expect(checkUsername("-nick").ok).toBe(false);
+    expect(checkUsername("nick@home").ok).toBe(false);
+  });
+});
+
+describe("defaultUsername", () => {
+  it("lowercases and drops everything but letters and digits", () => {
+    expect(defaultUsername("Dana Scully")).toBe("danascully");
+    expect(defaultUsername("Pam")).toBe("pam");
   });
 });
