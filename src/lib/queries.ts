@@ -1,12 +1,11 @@
 import "server-only";
-import { asc, desc, eq, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
   accounts,
   athleteProfiles,
   athletes,
   changeLog,
-  claimRequests,
   events,
   practiceAttempts,
   proposalVotes,
@@ -17,8 +16,7 @@ import { results } from "./resultsTable";
 import { isMigrationPending, type WalkoutSong } from "./walkout";
 import { formatMeasurement } from "./scoring";
 import { rankStandings } from "./ranking";
-import { mergeAthleteProfiles } from "./profiles";
-import { ATHLETE_PROFILES } from "@/content/athletes";
+import { attachProfiles } from "./profiles";
 import type { Event } from "./schema";
 
 /**
@@ -234,19 +232,30 @@ export interface ChangeLogRow {
    * button is what keeps "restore" unambiguous on an entry that reads 26.5 -> 28.
    */
   restoreTo: string | null;
+  /** Removed along with a deleted account: marked in the history, and Restore is greyed out. */
+  removedWithAccount: boolean;
+  /** About an athlete deleted with their account, so Restore can't work whatever the entry is. */
+  unrecoverable: boolean;
+}
+
+/** How many entries the history holds, for paging through it. */
+export async function countChangeLog(): Promise<number> {
+  const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(changeLog);
+  return total;
 }
 
 /**
- * History, newest first. Ids in the stored jsonb are resolved to event and
- * athlete names here so the page can read like a sentence.
+ * History, newest first, one page at a time (`offset` entries skipped). Ids in the
+ * stored jsonb are resolved to event and athlete names here so the page can read
+ * like a sentence.
  */
-export async function getChangeLog(limit = 100, before?: number): Promise<ChangeLogRow[]> {
+export async function getChangeLog(limit = 100, offset = 0): Promise<ChangeLogRow[]> {
   const rows = await db
     .select()
     .from(changeLog)
-    .where(before ? lt(changeLog.id, before) : sql`true`)
     .orderBy(desc(changeLog.id))
-    .limit(limit);
+    .limit(limit)
+    .offset(offset);
 
   const [eventList, athleteList] = await Promise.all([
     db
@@ -281,6 +290,19 @@ export async function getChangeLog(limit = 100, before?: number): Promise<Change
   }
   for (const [id, name] of athleteNames) knownNames.set(id, name); // the current spelling wins
 
+  // Athletes deleted with their account and not back on the roster: none of their
+  // history can be restored, older entries included, since there's no athlete to restore to.
+  const goneForGood = new Set(
+    (
+      await db
+        .select({ recordId: changeLog.recordId })
+        .from(changeLog)
+        .where(and(eq(changeLog.tableName, "athletes"), eq(changeLog.unrecoverable, true)))
+    )
+      .map((r) => r.recordId)
+      .filter((id): id is string => id !== null && !athleteNames.has(id)),
+  );
+
   return rows.map((row) => {
     const state = (row.newRow ?? row.oldRow) as Record<string, unknown> | null;
     let label = row.tableName;
@@ -307,17 +329,10 @@ export async function getChangeLog(limit = 100, before?: number): Promise<Change
       }
     }
 
-    if (row.tableName === "athletes" && restoreSource && typeof restoreSource.name === "string") {
-      // Offer Undo only when it would change something.
-      const now = athleteNames.get(row.recordId ?? "");
-      const wanted = restoreSource.name;
-      const useful =
-        row.operation === "DELETE"
-          ? now === undefined // still deleted; bringing them back also brings back their scores
-          : row.operation === "INSERT"
-            ? now !== undefined // undoing an add removes them, so only while they are still there
-            : now !== undefined && now !== wanted; // renamed since; put the name back
-      if (useful) restoreTo = wanted;
+    // Athletes can't be restored from here: they come and go with their accounts. A
+    // deletion with an account still names what's gone, shown greyed out (unrecoverable).
+    if (row.tableName === "athletes" && row.operation === "DELETE" && row.unrecoverable && restoreSource) {
+      if (typeof restoreSource.name === "string") restoreTo = restoreSource.name;
     }
 
     return {
@@ -332,6 +347,8 @@ export async function getChangeLog(limit = 100, before?: number): Promise<Change
       restoredFromId: row.restoredFromId,
       label,
       restoreTo,
+      removedWithAccount: row.unrecoverable,
+      unrecoverable: row.unrecoverable || goneForGood.has(String(row.tableName === "athletes" ? row.recordId : state?.athlete_id)),
     };
   });
 }
@@ -390,8 +407,8 @@ export interface ProfileView {
 }
 
 /**
- * One athlete's profile as the site shows it: the database's if they have one, else
- * src/content/athletes.ts's entry. Null if they're not on the roster.
+ * One athlete's profile as the site shows it, with empty strings for anything not
+ * written. Null if they're not on the roster.
  */
 export async function getProfile(athleteId: string): Promise<ProfileView | null> {
   const [athlete] = await db.select({ id: athletes.id, name: athletes.name }).from(athletes).where(eq(athletes.id, athleteId)).limit(1);
@@ -403,7 +420,7 @@ export async function getProfile(athleteId: string): Promise<ProfileView | null>
     "app.athlete_profiles",
   );
   const storedMap = new Map(stored.map((r) => [r.athleteId, { tagline: r.tagline, bio: r.bio, photo: r.photo }]));
-  const profile = mergeAthleteProfiles([athlete], ATHLETE_PROFILES, storedMap).rows[0]?.profile;
+  const profile = attachProfiles([athlete], storedMap)[0]?.profile;
 
   return {
     athleteId: athlete.id,
@@ -414,73 +431,18 @@ export async function getProfile(athleteId: string): Promise<ProfileView | null>
   };
 }
 
-export interface LoginChoice {
-  accountId: string;
-  label: string;
-}
-
-/** Who can sign in: staff logins first, then athletes with an approved claim, by name. */
-export async function getLoginChoices(): Promise<LoginChoice[]> {
-  const rows = await orWhileMigrating(
-    db
-      .select({ accountId: accounts.id, staffName: accounts.staffName, athleteName: athletes.name })
-      .from(accounts)
-      .leftJoin(athletes, eq(athletes.id, accounts.athleteId)),
-    [],
-    "app.accounts",
-  );
-  const staff = rows.filter((r) => r.staffName).map((r) => ({ accountId: r.accountId, label: r.staffName! }));
-  const athleteChoices = rows
-    .filter((r) => r.athleteName)
-    .map((r) => ({ accountId: r.accountId, label: r.athleteName! }))
-    .sort((a, b) => a.label.localeCompare(b.label));
-  return [...staff.sort((a, b) => a.label.localeCompare(b.label)), ...athleteChoices];
-}
-
-/** Athletes nobody has an account for yet: the ones that can be claimed. */
-export async function getUnclaimedAthletes(): Promise<Array<{ id: string; name: string }>> {
-  return orWhileMigrating(
-    db
-      .select({ id: athletes.id, name: athletes.name })
-      .from(athletes)
-      .leftJoin(accounts, eq(accounts.athleteId, athletes.id))
-      .where(isNull(accounts.id))
-      .orderBy(asc(athletes.name)),
-    [],
-    "app.accounts",
-  );
-}
-
-export interface PendingClaim {
-  id: string;
-  athleteId: string;
-  athleteName: string;
-  phone: string;
-  createdAt: Date;
-}
-
-/** Claims waiting for the admin, oldest first. Admin-only: the page must check before calling. */
-export async function getPendingClaims(): Promise<PendingClaim[]> {
-  return orWhileMigrating(
-    db
-      .select({
-        id: claimRequests.id,
-        athleteId: claimRequests.athleteId,
-        athleteName: athletes.name,
-        phone: claimRequests.phone,
-        createdAt: claimRequests.createdAt,
-      })
-      .from(claimRequests)
-      .innerJoin(athletes, eq(athletes.id, claimRequests.athleteId))
-      .orderBy(asc(claimRequests.createdAt)),
-    [],
-    "app.claim_requests",
-  );
+/** The username an account signs in with. */
+export async function getUsername(accountId: string): Promise<string | null> {
+  const [row] = await db.select({ username: accounts.username }).from(accounts).where(eq(accounts.id, accountId)).limit(1);
+  return row?.username ?? null;
 }
 
 export interface AccountRow {
   id: string;
   name: string;
+  username: string;
+  /** Null for a staff login. */
+  athleteId: string | null;
   role: "athlete" | "scorekeeper" | "admin";
   isStaff: boolean;
   createdAt: Date;
@@ -494,6 +456,8 @@ export async function getAccounts(): Promise<AccountRow[]> {
         id: accounts.id,
         role: accounts.role,
         staffName: accounts.staffName,
+        username: accounts.username,
+        athleteId: accounts.athleteId,
         athleteName: athletes.name,
         createdAt: accounts.createdAt,
       })
@@ -506,6 +470,8 @@ export async function getAccounts(): Promise<AccountRow[]> {
     .map((r) => ({
       id: r.id,
       name: r.staffName ?? r.athleteName ?? "?",
+      username: r.username,
+      athleteId: r.athleteId,
       role: r.role,
       isStaff: r.staffName !== null,
       createdAt: r.createdAt,

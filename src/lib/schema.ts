@@ -69,8 +69,8 @@ export const walkoutSongs = appSchema.table("walkout_songs", {
 });
 
 /**
- * An athlete's profile once it lives in the database: what src/content/athletes.ts
- * held before they claimed their account. Not audited, for the same reason as
+ * An athlete's photo, tagline and bio, the only place profiles live. An athlete with
+ * no row just has no profile yet. Not audited, for the same reason as
  * `walkoutSongs`: a bio is not a score.
  */
 export const athleteProfiles = appSchema.table("athlete_profiles", {
@@ -103,6 +103,8 @@ export const accounts = appSchema.table(
     role: accountRole("role").notNull().default("athlete"),
     athleteId: uuid("athlete_id").references(() => athletes.id, { onDelete: "cascade" }),
     staffName: text("staff_name"),
+    /** What you type to sign in. Separate from the name shown on the site, so the leaderboard doesn't give out logins. */
+    username: text("username").notNull(),
     passwordHash: text("password_hash").notNull(),
     /** Wrong passwords in a row. Reset by a good one. */
     failedLogins: integer("failed_logins").notNull().default(0),
@@ -112,28 +114,20 @@ export const accounts = appSchema.table(
   (t) => [
     uniqueIndex("accounts_athlete_key").on(t.athleteId),
     uniqueIndex("accounts_staff_name_lower_key").on(sql`lower(${t.staffName})`),
+    uniqueIndex("accounts_username_lower_key").on(sql`lower(${t.username})`),
     check("accounts_one_owner", sql`(${t.athleteId} is null) <> (${t.staffName} is null)`),
   ],
 );
 
 /**
- * A request to claim an athlete, waiting for the admin. The phone number is only here
- * so the admin can tell who is asking: approving creates the account and deletes this
- * row, and rejecting just deletes it, so no phone number outlives its claim.
+ * Switches the admin flips from the site itself, e.g. "registration_locked". Not audited:
+ * unlike the flag service's flags, these need an admin button, so they live here.
  */
-export const claimRequests = appSchema.table(
-  "claim_requests",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    athleteId: uuid("athlete_id")
-      .notNull()
-      .references(() => athletes.id, { onDelete: "cascade" }),
-    phone: text("phone").notNull(),
-    passwordHash: text("password_hash").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [index("claim_requests_athlete_idx").on(t.athleteId)],
-);
+export const siteSettings = appSchema.table("site_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 /** A signed-in browser. The id is a hash of the cookie's token, so a leaked table can't sign anyone in. */
 export const sessions = appSchema.table(
@@ -351,6 +345,8 @@ export const changeLog = auditSchema.table(
     batchId: uuid("batch_id"),
     /** For a RESTORE, the change_log entry whose state was reapplied. */
     restoredFromId: bigint("restored_from_id", { mode: "number" }),
+    /** Removed along with a deleted account (drizzle/0013), so it can't be restored. */
+    unrecoverable: boolean("unrecoverable").notNull().default(false),
   },
   (t) => [
     index("change_log_record_idx").on(t.tableName, t.recordId, t.id),
@@ -365,7 +361,6 @@ export type Account = typeof accounts.$inferSelect;
 export type AccountRole = (typeof accountRole.enumValues)[number];
 export type PracticeAttempt = typeof practiceAttempts.$inferSelect;
 export type Proposal = typeof proposals.$inferSelect;
-export type ClaimRequest = typeof claimRequests.$inferSelect;
 export type Event = typeof events.$inferSelect;
 export type Result = typeof results.$inferSelect;
 export type ChangeLogEntry = typeof changeLog.$inferSelect;

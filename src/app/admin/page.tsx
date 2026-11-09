@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
-import { AccountsPanel, ClaimsPanel } from "@/components/AdminPanels";
+import { AccountsPanel, RegistrationPanel } from "@/components/AdminPanels";
 import { PageHeader } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
-import { formatPhone } from "@/lib/credentials";
-import { getAccounts, getPendingClaims } from "@/lib/queries";
-import { formatEventDateTime } from "@/lib/time";
+import { getAccounts } from "@/lib/queries";
+import { registrationLocked } from "@/lib/siteSettings";
 
 export const dynamic = "force-dynamic";
 
@@ -15,26 +14,19 @@ export default async function AdminPage() {
   if (!session) redirect("/login?next=/admin");
   if (!isAdmin(session)) redirect("/");
 
-  const [claims, accounts] = await Promise.all([getPendingClaims(), getAccounts()]);
+  const [accounts, locked] = await Promise.all([getAccounts(), registrationLocked()]);
 
   return (
     <>
       <PageHeader
         eyebrow="Admin"
         title="Accounts"
-        description="Approve people claiming their athlete, and decide who can enter scores. Staff logins are managed with npm run auth:staff."
+        description="Open or close registration, and decide who can enter scores. Staff logins are managed with npm run auth:staff."
       />
 
-      <ClaimsPanel
-        claims={claims.map((c) => ({
-          id: c.id,
-          athleteName: c.athleteName,
-          phone: formatPhone(c.phone),
-          requestedAt: formatEventDateTime(c.createdAt),
-        }))}
-      />
+      <RegistrationPanel locked={locked} />
 
-      <AccountsPanel accounts={accounts.map(({ id, name, role, isStaff }) => ({ id, name, role, isStaff }))} />
+      <AccountsPanel accounts={accounts.map(({ id, name, username, athleteId, role, isStaff }) => ({ id, name, username, athleteId, role, isStaff }))} />
     </>
   );
 }

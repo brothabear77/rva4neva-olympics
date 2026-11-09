@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { approveClaim, rejectClaim, removeAccount, setScorekeeper } from "@/lib/authActions";
+import { deleteAthlete, setRegistrationLocked, setScorekeeper } from "@/lib/authActions";
 import type { ActionResult } from "@/lib/actions";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Banner } from "./ui";
@@ -35,48 +35,38 @@ function SectionHeading({ id, eyebrow, title, children }: { id: string; eyebrow:
   );
 }
 
-export interface ClaimView {
-  id: string;
-  athleteName: string;
-  phone: string;
-  requestedAt: string;
-}
-
-export function ClaimsPanel({ claims }: { claims: ClaimView[] }) {
+export function RegistrationPanel({ locked }: { locked: boolean }) {
   const { message, working, run } = useRunner();
 
   return (
-    <section aria-labelledby="claims-heading">
-      <SectionHeading id="claims-heading" eyebrow="Waiting on you" title="Claims">
-        Check the phone number is really theirs. Approving or rejecting deletes the number either way.
+    <section aria-labelledby="registration-heading" className="mb-12">
+      <SectionHeading id="registration-heading" eyebrow="Who can join" title="Registration">
+        Anyone can sign up as a new athlete and is on the roster, with an account, straight away. Locking registration stops new
+        sign-ups. Athletes who already have an account are unaffected.
       </SectionHeading>
 
-      <div className="card space-y-4 p-4 sm:p-6">
-        {message ? <Banner tone={message.tone}>{message.text}</Banner> : null}
-        {claims.length === 0 ? (
-          <p className="text-sm text-muted">No claims waiting.</p>
-        ) : (
-          <ul className="divide-y divide-[var(--edge)] border-y border-[var(--edge)]">
-            {claims.map((claim) => (
-              <li key={claim.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <div>
-                  <p className="font-display text-lg font-semibold uppercase tracking-wide text-paper">{claim.athleteName}</p>
-                  <p className="tnum text-sm text-muted">
-                    {claim.phone} · {claim.requestedAt}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button type="button" disabled={working} onClick={() => run(() => approveClaim(claim.id))} className="btn">
-                    Approve
-                  </button>
-                  <button type="button" disabled={working} onClick={() => run(() => rejectClaim(claim.id))} className="btn btn-ghost">
-                    Reject
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+      <div className="card flex flex-wrap items-center justify-between gap-4 p-4 sm:p-6">
+        <div>
+          <p className="font-display text-lg font-semibold uppercase tracking-wide text-paper">
+            {locked ? "Locked" : "Open"}
+          </p>
+          <p className="text-sm text-muted">
+            {locked ? "The sign-up page tells people registration is closed." : "Anyone can sign up as a new athlete."}
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={working}
+          onClick={() => run(() => setRegistrationLocked(!locked))}
+          className={locked ? "btn" : "btn btn-ghost"}
+        >
+          {working ? "Saving…" : locked ? "Unlock registration" : "Lock registration"}
+        </button>
+        {message ? (
+          <div className="w-full">
+            <Banner tone={message.tone}>{message.text}</Banner>
+          </div>
+        ) : null}
       </div>
     </section>
   );
@@ -85,6 +75,8 @@ export function ClaimsPanel({ claims }: { claims: ClaimView[] }) {
 export interface AccountView {
   id: string;
   name: string;
+  username: string;
+  athleteId: string | null;
   role: "athlete" | "scorekeeper" | "admin";
   isStaff: boolean;
 }
@@ -102,7 +94,7 @@ export function AccountsPanel({ accounts }: { accounts: AccountView[] }) {
   return (
     <section aria-labelledby="accounts-heading" className="mt-12">
       <SectionHeading id="accounts-heading" eyebrow="Who can sign in" title="Accounts">
-        Removing an athlete&apos;s account signs them out and lets their athlete be claimed again. Their profile stays.
+        Deleting an athlete removes them completely: account, profile and every score. Staff logins are managed with npm run auth:staff.
       </SectionHeading>
 
       <div className="card space-y-4 p-4 sm:p-6">
@@ -116,7 +108,7 @@ export function AccountsPanel({ accounts }: { accounts: AccountView[] }) {
                 <div>
                   <p className="font-display text-lg font-semibold uppercase tracking-wide text-paper">{account.name}</p>
                   <p className="text-sm text-muted">
-                    {ROLE_LABEL[account.role]}
+                    {account.username} · {ROLE_LABEL[account.role]}
                     {account.isStaff ? " · staff login" : ""}
                   </p>
                 </div>
@@ -132,7 +124,7 @@ export function AccountsPanel({ accounts }: { accounts: AccountView[] }) {
                       Can enter scores
                     </label>
                     <button type="button" disabled={working} onClick={() => setRemoving(account)} className={LINK}>
-                      Remove
+                      Delete
                     </button>
                   </div>
                 )}
@@ -144,19 +136,19 @@ export function AccountsPanel({ accounts }: { accounts: AccountView[] }) {
 
       <ConfirmDialog
         open={removing !== null}
-        title={removing ? `Remove ${removing.name}'s account?` : ""}
-        confirmLabel="Yes, remove"
-        busyLabel="Removing…"
+        title={removing ? `Delete ${removing.name}?` : ""}
+        confirmLabel="Yes, delete"
+        busyLabel="Deleting…"
         busy={working}
         onConfirm={() => {
-          if (!removing) return;
-          const id = removing.id;
+          const athleteId = removing?.athleteId;
+          if (!athleteId) return;
           setRemoving(null);
-          run(() => removeAccount(id));
+          run(() => deleteAthlete(athleteId));
         }}
         onCancel={() => setRemoving(null)}
       >
-        They&apos;re signed out at once, and their athlete can be claimed again. Their profile stays.
+        Their account, profile, walkout song, scores, practice log, votes, proposals and videos all go, and they disappear from every event. This can&apos;t be undone, including from Change History.
       </ConfirmDialog>
     </section>
   );
