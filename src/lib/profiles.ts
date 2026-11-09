@@ -9,21 +9,22 @@ import {
 /**
  * Helpers for the Info pages: the athlete profiles and the event guide.
  *
- * What people write lives in src/content/athletes.ts and src/content/events.ts.
- * This file is the logic around it, kept pure so it can be tested: match what was
- * written to the database rows, work out what kind of media a path or link is, and
- * notice mistakes (a bio for a name nobody has, a link that is not YouTube) that
- * would otherwise just mean something silently never shows up.
+ * Athlete profiles live in the database (app.athlete_profiles); the event guide is
+ * written in src/content/events.ts. This file is the logic around both, kept pure so
+ * it can be tested: pair athletes with their profiles, match guides to events, work
+ * out what kind of media a path or link is, and notice mistakes (a guide for an event
+ * nobody has, a link that is not YouTube) that would otherwise just mean something
+ * silently never shows up.
  */
 
-// --- what gets written in the content files ---------------------------------
+// --- profiles and guides ------------------------------------------------------
 
 /** Limits on what an athlete can write about themselves on their own profile. */
 export const MAX_TAGLINE_LENGTH = 160;
 export const MAX_BIO_LENGTH = 2000;
 
 export interface AthleteProfile {
-  /** Must match the athlete's name on the roster. Case and extra spaces do not matter. */
+  /** The athlete's name on the roster. */
   name: string;
   /** A file in public/, e.g. "/athletes/nick.jpg". */
   photo?: string;
@@ -84,68 +85,32 @@ export function initials(name: string): string {
   return words.length === 1 ? letter(words[0]) : letter(words[0]) + letter(words[words.length - 1]);
 }
 
-// --- matching what was written to the database rows ----------------------------
+// --- pairing athletes with their profiles ---------------------------------------
 
-/** A profile that has moved into the database (app.athlete_profiles). Empty strings mean "not written". */
+/** A profile as it is stored in app.athlete_profiles. Empty strings mean "not written". */
 export interface StoredProfile {
   tagline: string;
   bio: string;
   photo: string;
 }
 
-export interface AthleteMerge<T> {
-  /** Every roster athlete, in roster order, with their profile if one was written. */
-  rows: Array<{ athlete: T; profile: AthleteProfile | null }>;
-  /** Profiles whose name matches nobody on the roster: almost always a typo. */
-  unmatched: AthleteProfile[];
-  /** A second profile for a name that already has one. The first is used. */
-  duplicates: AthleteProfile[];
-  /** File entries for athletes whose profile is in the database now: safe to delete from the file. */
-  superseded: AthleteProfile[];
-}
-
 /**
- * Pair each roster athlete with their profile. A profile in the database (`stored`,
- * by athlete id) wins over the content file's entry: once someone has claimed their
- * account, what they wrote is what shows.
+ * Pair each roster athlete with their profile from the database (`stored`, by athlete
+ * id), in roster order. An athlete with nothing written gets a null profile, not a
+ * missing row.
  */
-export function mergeAthleteProfiles<T extends { name: string; id?: string }>(
+export function attachProfiles<T extends { id: string; name: string }>(
   roster: readonly T[],
-  profiles: readonly AthleteProfile[],
-  stored: ReadonlyMap<string, StoredProfile> = new Map(),
-): AthleteMerge<T> {
-  const byKey = new Map<string, AthleteProfile>();
-  const duplicates: AthleteProfile[] = [];
-
-  for (const profile of profiles) {
-    const key = keyOf(profile.name ?? "");
-    if (!key) continue;
-    if (byKey.has(key)) duplicates.push(profile);
-    else byKey.set(key, profile);
-  }
-
-  const rosterKeys = new Set(roster.map((a) => keyOf(a.name)));
-  const unmatched = [...byKey.entries()].filter(([key]) => !rosterKeys.has(key)).map(([, p]) => p);
-  const superseded: AthleteProfile[] = [];
-
-  const rows = roster.map((athlete) => {
-    const fromFile = byKey.get(keyOf(athlete.name)) ?? null;
-    const fromDb = athlete.id ? stored.get(athlete.id) : undefined;
-    if (!fromDb) return { athlete, profile: fromFile };
-
-    if (fromFile) superseded.push(fromFile);
+  stored: ReadonlyMap<string, StoredProfile>,
+): Array<{ athlete: T; profile: AthleteProfile | null }> {
+  return roster.map((athlete) => {
+    const row = stored.get(athlete.id);
+    if (!row) return { athlete, profile: null };
     return {
       athlete,
-      profile: {
-        name: athlete.name,
-        photo: clean(fromDb.photo),
-        tagline: clean(fromDb.tagline),
-        bio: clean(fromDb.bio),
-      },
+      profile: { name: athlete.name, photo: clean(row.photo), tagline: clean(row.tagline), bio: clean(row.bio) },
     };
   });
-
-  return { rows, unmatched, duplicates, superseded };
 }
 
 export interface EventMerge<T> {

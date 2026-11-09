@@ -64,6 +64,13 @@
       "when": 1791651886286,
       "tag": "0008_confession_videos",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794249376221,
+      "tag": "0009_athlete_profiles_to_db",
+      "breakpoints": true
     }
   ]
 }

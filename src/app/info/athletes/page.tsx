@@ -2,8 +2,7 @@ import Link from "next/link";
 import { AthleteRoster } from "@/components/AthleteRoster";
 import { DevNotes } from "@/components/DevNotes";
 import { EmptyState, PageHeader } from "@/components/ui";
-import { ATHLETE_PROFILES } from "@/content/athletes";
-import { mergeAthleteProfiles } from "@/lib/profiles";
+import { attachProfiles } from "@/lib/profiles";
 import { getAthleteProfiles, getEventsForForm, getLeaderboard, getWalkoutSongs } from "@/lib/queries";
 import { getSession, isAdmin } from "@/lib/auth";
 import { isLocalDev, publicFileMissing } from "@/lib/publicFiles";
@@ -26,13 +25,10 @@ export default async function AthletesPage() {
     .sort((a, b) => a.athleteName.localeCompare(b.athleteName))
     .map((entry) => ({ id: entry.athleteId, name: entry.athleteName, standing: entry }));
 
-  const { rows, unmatched, duplicates, superseded } = mergeAthleteProfiles(roster, ATHLETE_PROFILES, storedProfiles);
+  const rows = attachProfiles(roster, storedProfiles);
 
   const notes = isLocalDev
     ? [
-        ...unmatched.map((p) => `"${p.name}" matches nobody on the roster. Check the spelling.`),
-        ...duplicates.map((p) => `"${p.name}" has more than one entry; only the first is used.`),
-        ...superseded.map((p) => `"${p.name}" has claimed their account, so their profile is in the database now. Delete their entry.`),
         ...rows
           .filter((r) => r.profile?.photo && publicFileMissing(r.profile.photo))
           .map((r) => `${r.athlete.name}: no file at public${r.profile?.photo}.`),
@@ -52,11 +48,11 @@ export default async function AthletesPage() {
         }
       />
 
-      <DevNotes file="src/content/athletes.ts" notes={notes} />
+      <DevNotes file="the athlete photos" notes={notes} />
 
       {rows.length === 0 ? (
         <EmptyState title="Nobody on the roster yet">
-          Athletes appear here as soon as they have a score, or once added from the Submit page.
+          Athletes appear here as soon as they sign up.
         </EmptyState>
       ) : (
         <AthleteRoster
