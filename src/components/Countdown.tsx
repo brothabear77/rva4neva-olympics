@@ -49,9 +49,13 @@ export function Countdown({
 
   if (remaining <= 0) {
     return (
-      <p className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-accent">
-        {finished ? "Games finished" : "Games underway"}
-      </p>
+      <div className="flex flex-col items-center">
+        <p className="text-sm font-bold text-paper">September 4-7, 2026</p>
+        <p className="text-xs text-paper mb-5">Denny Farrell Riverbank State Park, New York, NY</p>
+        <p className="font-display text-md font-semibold uppercase tracking-[0.18em] text-accent">
+          {finished ? "Games finished" : "Games underway"}
+        </p>
+      </div>
     );
   }
 

@@ -94,7 +94,7 @@ export default async function HomePage() {
                 wrapper doesn't move it — it needs its own centering. */}
             <Image src="/rva4nevaoly.svg" alt="#rva4neva Olympics" width={168} height={168} priority unoptimized className="mx-auto mt-3 h-auto w-16 sm:w-24" />
 
-            <div className="mt-8 flex justify-center">
+            <div className="mt-3 flex justify-center">
               <Countdown startsAt={SITE.startsAt} finished={finished} />
             </div>
 
