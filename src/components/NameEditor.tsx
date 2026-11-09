@@ -8,7 +8,7 @@ import { Banner } from "./ui";
 
 /**
  * Change the athlete's name on the profile page. It changes everywhere (the leaderboard,
- * the history, the sign-in list), so it says so. The server checks the account and the
+ * the history), so it says so. The server checks the account and the
  * name rules again, including that nobody else has the name.
  */
 export function NameEditor({ athleteId, name }: { athleteId: string; name: string }) {
@@ -44,7 +44,7 @@ export function NameEditor({ athleteId, name }: { athleteId: string; name: strin
           className="field"
         />
         <p className="mt-1.5 text-xs text-muted">
-          Changes everywhere your name shows, your scores included. It&apos;s recorded in Change History.
+          Changes everywhere your name shows, your scores included.
         </p>
       </div>
       {message ? <Banner tone={message.tone}>{message.text}</Banner> : null}

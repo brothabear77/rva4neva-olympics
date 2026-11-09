@@ -77,16 +77,15 @@ describe("buildImportPreview", () => {
     expect(result.counts.unchanged).toBe(1);
   });
 
-  it("notices athletes who are not on the roster yet", () => {
+  it("refuses a name that isn't on the roster, since athletes join by signing up", () => {
     const result = preview("event,athlete,value\n40-yard-dash,Newcomer,7");
-    expect(result.newAthletes).toEqual(["Newcomer"]);
-    expect(result.rows[0].createsAthlete).toBe(true);
+    expect(result.rows[0]).toMatchObject({ action: "error", error: expect.stringMatching(/sign up first/) });
+    expect(result.canCommit).toBe(false);
   });
 
   it("matches athletes case-insensitively", () => {
     const result = preview("event,athlete,value\n40-yard-dash,nick,7");
-    expect(result.newAthletes).toEqual([]);
-    expect(result.rows[0].createsAthlete).toBe(false);
+    expect(result.rows[0].action).toBe("create");
   });
 
   it("matches an event by display name as well as slug", () => {
