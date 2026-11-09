@@ -19,7 +19,7 @@ your laptop ──docker push──▶ ECR ──▶ App Runner ──(VPC conne
 | Database | Aurora Serverless v2, PostgreSQL 17, 0 to 2 ACU, pauses after 5 idle minutes | `SiteStack` |
 | App | App Runner: 0.25 vCPU, 1 GB, one instance always on, at most two | `SiteStack` |
 | Vlog bucket | Private S3 bucket for Vlog videos, kept if the stack is deleted; see *Vlog media* | `SiteStack` |
-| Secrets | `rva4neva/database-master` (the owner), `rva4neva/app-database-url` (what the app uses), `rva4neva/launchdarkly-sdk-key` (set by hand, see *Feature flags*), `rva4neva/spotify-credentials` (set by hand, see *Walkout songs*) | `SiteStack` |
+| Secrets | `rva4neva/database-master` (the owner), `rva4neva/app-database-url` (what the app uses), `rva4neva/launchdarkly-sdk-key` and `rva4neva/flag-service-sdk-key` (set by hand, see *Feature flags*), `rva4neva/spotify-credentials` (set by hand, see *Walkout songs*) | `SiteStack` |
 
 Infrastructure is AWS CDK in `infra/cdk`, a package of its own, so none of it reaches the
 app's dependencies or its Docker image. Two scripts drive it: `scripts/deploy.ts` and
@@ -259,6 +259,22 @@ aws apprunner start-deployment --service-arn <ServiceArn, from the stack outputs
 ```
 
 The restart is needed because App Runner reads secrets only when an instance starts.
+
+**Moving to the owner's flag service.** The stack also sets `FLAG_SERVICE_URL` (the
+feature-flag-service at `https://4nxpsigzar.us-east-1.awsapprunner.com`), and while it is set the
+app reads every flag from that service, not LaunchDarkly. Its SDK key (the service's dashboard →
+project `rva4neva-olympics` → Settings → SDK keys, Production) is set the same way:
+
+```bash
+read -rs FFS_KEY; f=$(mktemp); printf %s "$FFS_KEY" > "$f"
+aws secretsmanager put-secret-value --secret-id rva4neva/flag-service-sdk-key --secret-string "file://$f"
+rm "$f"; unset FFS_KEY
+aws apprunner start-deployment --service-arn <ServiceArn, from the stack outputs>
+```
+
+Until it is set, every flag answers with its default. To roll back to LaunchDarkly, remove
+`FLAG_SERVICE_URL` from `olympics-stack.ts` and deploy. LaunchDarkly is retired once the service has
+proven itself in production.
 
 **If LaunchDarkly can't be reached** (the NAT instance is being replaced, or LaunchDarkly
 itself is down), running instances keep the last flag values they received and reconnect on

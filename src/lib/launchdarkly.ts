@@ -1,5 +1,6 @@
 import "server-only";
 import { init, type LDClient, type LDContext } from "@launchdarkly/node-server-sdk";
+import { boolFlag as serviceBoolFlag } from "./ffs-client";
 
 /** What CloudFormation writes into the production secret until a real key is set (infra/aws.md). */
 const KEY_PLACEHOLDER = "not-provisioned-yet";
@@ -39,6 +40,10 @@ const visitor: LDContext = { kind: "user", key: "anonymous-visitor", anonymous: 
  * starts working without a restart.
  */
 export async function boolFlag(key: string, fallback: boolean): Promise<boolean> {
+  // The self-hosted flag service (feature-flag-service), once FLAG_SERVICE_URL is set. It has the
+  // same guarantees: it never throws, only the first call waits, and an outage keeps the last values.
+  if (process.env.FLAG_SERVICE_URL?.trim()) return serviceBoolFlag(key, fallback);
+
   const client = getClient();
   if (!client) return fallback;
   try {
