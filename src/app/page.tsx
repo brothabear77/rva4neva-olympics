@@ -19,7 +19,8 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   // Until kickoff the homepage is only the title and the countdown. Returning
-  // before any query also means it renders without touching the database.
+  // before any query also means it renders without waiting on the database
+  // (src/proxy.ts still starts a paused one waking up for the next click).
   if (!hasStarted()) {
     return (
       <section className="flex min-h-[60vh] flex-col items-center justify-center gap-10 text-center">
