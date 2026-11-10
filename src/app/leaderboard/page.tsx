@@ -25,7 +25,8 @@ export default async function LeaderboardPage() {
   const runnerUp = scored[1];
   const margin = leader && runnerUp ? leader.totalPoints - runnerUp.totalPoints : 0;
   const wonOnTiebreak = leader !== undefined && runnerUp !== undefined && margin === 0 && leader.rank < runnerUp.rank;
-  const totalResults = entries.reduce((sum, e) => sum + e.eventsCompleted, 0);
+  // An event is completed once every athlete on the roster has a result in it.
+  const eventsCompleted = events.filter((ev) => entries.every((e) => ev.id in e.byEventId)).length;
 
   const superlatives = computeSuperlatives(
     SUPERLATIVE_CATEGORIES,
@@ -73,9 +74,9 @@ export default async function LeaderboardPage() {
               hint={runnerUp ? `over ${runnerUp.athleteName}` : "at the top"}
             />
             <Stat
-              label="Results in"
-              value={totalResults}
-              hint={`of ${entries.length * events.length} possible`}
+              label="Events completed"
+              value={eventsCompleted}
+              hint={`of ${events.length} events`}
             />
           </div>
 
