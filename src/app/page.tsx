@@ -5,7 +5,7 @@ import { Confetti } from "@/components/Confetti";
 import { Countdown } from "@/components/Countdown";
 import { QuoteCarousel } from "@/components/QuoteCarousel";
 import { LiveRefresh } from "@/components/LiveRefresh";
-import { RankBadge } from "@/components/ui";
+import { DayTag, RankBadge } from "@/components/ui";
 import { QUOTES } from "@/content/quotes";
 import { allScoresIn, getAthleteProfiles, getEventSummaries, getLeaderboard, getRecentResults, getWalkoutSongs } from "@/lib/queries";
 import { canScore, getSession } from "@/lib/auth";
@@ -24,8 +24,10 @@ export default async function HomePage() {
   if (!hasStarted()) {
     return (
       <section className="flex min-h-[60vh] flex-col items-center justify-center gap-10 text-center">
-        <Image src="/rva4nevaoly.svg" alt="#rva4neva Olympics" width={280} height={280} priority unoptimized className="h-auto w-40 sm:w-56" />
-        <Countdown startsAt={SITE.startsAt} large />
+        <div className="flex flex-col items-center">
+          <Image src="/rva4nevaoly.svg" alt="#rva4neva Olympics" width={280} height={280} priority unoptimized className="h-auto w-40 sm:w-56" />
+          <Countdown startsAt={SITE.startsAt} large />
+        </div>
         {/* Renders nothing until src/content/quotes.ts has a quote in it. */}
         <QuoteCarousel quotes={cleanQuotes(QUOTES)} />
       </section>
@@ -93,7 +95,7 @@ export default async function HomePage() {
                 wrapper doesn't move it — it needs its own centering. */}
             <Image src="/rva4nevaoly.svg" alt="#rva4neva Olympics" width={168} height={168} priority unoptimized className="mx-auto mt-3 h-auto w-16 sm:w-24" />
 
-            <div className="mt-3 flex justify-center">
+            <div className="flex justify-center">
               <Countdown startsAt={SITE.startsAt} finished={finished} />
             </div>
 
@@ -221,9 +223,6 @@ export default async function HomePage() {
             All events →
           </Link>
         </div>
-        <p className="mb-4 text-sm text-muted">
-          {scored} of {events.length} events have scores in.
-        </p>
         <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {events.map((event) => (
             <li key={event.id}>
@@ -232,7 +231,7 @@ export default async function HomePage() {
                 className="card flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:border-accent/50"
               >
                 <span className="truncate text-sm text-paper">{event.name}</span>
-                <span className="eyebrow shrink-0">Day {event.day}</span>
+                <DayTag day={event.day} order={event.sortOrder} dayText noBorder />
               </Link>
             </li>
           ))}

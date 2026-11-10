@@ -50,8 +50,7 @@ export function Countdown({
   if (remaining <= 0) {
     return (
       <div className="flex flex-col items-center">
-        <p className="text-sm font-bold text-paper">September 4-7, 2026</p>
-        <p className="text-xs text-paper mb-5">Denny Farrell Riverbank State Park, New York, NY</p>
+        <p className="text-sm font-bold text-paper mb-5">September 4-5, 2026</p>
         <p className="font-display text-md font-semibold uppercase tracking-[0.18em] text-accent">
           {finished ? "Games finished" : "Games underway"}
         </p>
@@ -69,7 +68,7 @@ export function Countdown({
 
   return (
     <div className="flex flex-col items-center">
-      <h3 className="text-2xl font-bold text-accent mb-5">September 4-7, 2026</h3>
+      <h3 className="text-2xl font-bold text-paper mb-15">September 4-5, 2026</h3>
       <div
         className={large ? "flex justify-center gap-5 sm:gap-10" : "flex gap-4"}
         aria-label="Time until the games begin"
@@ -78,7 +77,7 @@ export function Countdown({
           <div key={part.label} className={large ? "text-center" : undefined}>
             <p
               className={[
-                "tnum font-display font-bold text-paper",
+                "tnum font-display font-bold text-accent",
                 large ? "text-5xl sm:text-7xl" : "text-2xl sm:text-3xl",
               ].join(" ")}
             >
@@ -90,9 +89,9 @@ export function Countdown({
       </div>
       <div className="flex items-center gap-2">
         <Icon icon="mdi:location-on-outline" className="text-paper/80 mt-5"/>
-        <p className="text-lg text-paper/80 mt-5">Denny Farrell Riverbank State Park</p>
+        <p className="text-lg font-bold text-paper/80 mt-5">Denny Farrell Riverbank State Park</p>
       </div>
-      <p className="text-lg text-paper/80">New York, NY</p>
+      <p className="text-lg font-bold text-paper/80">New York, NY</p>
     </div>
   );
 }

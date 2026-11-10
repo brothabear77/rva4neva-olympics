@@ -402,7 +402,7 @@ export function ScoreGrid({
                           changed ? "text-accent" : "text-muted",
                         ].join(" ")}
                       >
-                        {cleared ? "will delete" : bad ? "not a number" : points !== null ? `${points} pts` : ""}
+                        {bad ? "not a number" : points !== null ? `${points} pts` : ""}
                       </span>
                     </td>
                   );

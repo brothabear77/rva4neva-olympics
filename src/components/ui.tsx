@@ -101,9 +101,9 @@ export function Banner({ tone, children }: { tone: keyof typeof BANNER_TONES; ch
  * `dayText` prepends the word "Day" — pass it wherever that isn't already said
  * some other way nearby (a "Day One" section heading, say).
  */
-export function DayTag({ day, order, dayText }: { day?: number; order?: number; dayText?: boolean }) {
+export function DayTag({ day, order, dayText, noBorder }: { day?: number; order?: number; dayText?: boolean, noBorder?: boolean }) {
   return (
-    <span className="eyebrow rounded border border-[var(--edge)] px-2 py-1">
+    <span className={`eyebrow ${noBorder ? "" : "rounded border border-[var(--edge)]"} px-2 py-1`}>
       {day != null ? `${dayText ? "Day " : ""}${day}` : ""}
       {order != null ? `.${order}` : ""}
     </span>
