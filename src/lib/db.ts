@@ -53,6 +53,19 @@ if (process.env.NODE_ENV !== "production") globalForDb.__olympicsPool = pool;
 
 export const db = drizzle(pool, { schema });
 
+/**
+ * Start a paused Aurora waking up. src/proxy.ts calls it in the background on page
+ * requests, so the ~15s wake-up overlaps with the visitor reading a page instead of
+ * happening after their next click. It never throws: a failed ping is only logged.
+ */
+export async function wakeDatabase(): Promise<void> {
+  try {
+    await db.execute(sql`select 1`);
+  } catch (error) {
+    console.warn(`Database wake-up ping failed (${error instanceof Error ? error.message : String(error)}).`);
+  }
+}
+
 export type Db = NodePgDatabase<typeof schema>;
 /** A transaction handle — same query API as `db`. */
 export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];

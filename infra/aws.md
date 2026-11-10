@@ -203,6 +203,12 @@ seconds in production for this reason, so the first visitor after a quiet spell 
 instead of seeing an error. It also releases idle connections after 10 seconds, because Aurora
 cannot pause while any connection is open.
 
+Every page request also pings the database (`select 1`) in the background, from `src/proxy.ts`,
+at most once a minute per instance. Pages never wait on it; it starts the wake-up on pages that
+need no data (the pre-kickoff homepage, `/info`) so the visitor's next click is faster. Any page
+visit, bots included, can therefore wake Aurora for its five-minute minimum. `/api` is excluded
+so the health check can't keep it awake.
+
 Two things look alarming and are not:
 
 - A log line, "An idle database connection was closed", whenever the database pauses or
