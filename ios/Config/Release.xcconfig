@@ -1,5 +1,6 @@
-// Production: the OlympicsSite App Runner service (ServiceUrl in the deploy log).
-// Not 4nxpsigzar…, which is the feature-flag service (FLAG_SERVICE_URL in infra/aws.md).
-API_BASE_URL = https:/$()/rva4nevaoly.com
+// Production: the site's custom domain. It has to be www: www is the CNAME to the
+// OlympicsSite App Runner service, while the bare domain only forwards "/" to www and
+// 404s every other path, /api/v1 included.
+API_BASE_URL = https:/$()/www.rva4nevaoly.com
 
 #include? "Local.xcconfig.release"
