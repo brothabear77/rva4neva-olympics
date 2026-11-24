@@ -7,7 +7,7 @@ const PING_EVERY_MS = 60_000;
 let lastPing = 0;
 
 /**
- * Every page request, including client-side clicks between pages, starts a paused
+ * Every page request (and every request from the iOS app), including client-side clicks between pages, starts a paused
  * Aurora waking up. Pages without data (the pre-kickoff homepage, /info) would
  * otherwise let it sleep, and the next page with data would wait ~15s for it.
  * `waitUntil` means the request never waits on the ping. See "A paused database"
@@ -21,8 +21,8 @@ export function proxy(_request: NextRequest, event: NextFetchEvent) {
 }
 
 export const config = {
-  // Pages only. /api is left out so App Runner's health check (/api/health, every
-  // few seconds) can't keep the database awake forever, and anything with a file
-  // extension is a static asset.
-  matcher: ["/((?!api|_next/static|_next/image|.*\\..*).*)"],
+  // Pages and the iOS app's /api/v1. /api/health is left out so App Runner's health
+  // check (every few seconds) can't keep the database awake forever, and anything
+  // with a file extension is a static asset.
+  matcher: ["/((?!api/health|_next/static|_next/image|.*\\..*).*)"],
 };

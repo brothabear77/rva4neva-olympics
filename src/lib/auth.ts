@@ -1,11 +1,13 @@
 import "server-only";
 import { cache } from "react";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createHash, randomBytes } from "node:crypto";
 import { and, eq, gt, lt, ne } from "drizzle-orm";
 import { db } from "./db";
 import { accounts, athletes, sessions, type AccountRole } from "./schema";
 import { isMigrationPending } from "./walkout";
+import { parseBearer } from "./bearer";
+import { NOT_ALLOWED, NOT_SIGNED_IN } from "./authMessages";
 
 /**
  * Who is signed in, and what they may do.
@@ -17,6 +19,10 @@ import { isMigrationPending } from "./walkout";
  *
  * Every page and every server action asks this itself. Hiding a button is a
  * courtesy; anyone can post to an action directly.
+ *
+ * Two ways to carry the token: the website's `session` cookie, and an
+ * `Authorization: Bearer <token>` header for the iOS app (see src/lib/api.ts). Both
+ * are the same row in app.sessions, so roles, removal and expiry work identically.
  */
 
 const COOKIE = "session";
@@ -31,15 +37,28 @@ export interface Session {
   displayName: string;
 }
 
-export const NOT_SIGNED_IN = "Sign in to do that.";
-export const NOT_ALLOWED = "Your account can't do that.";
+export { NOT_ALLOWED, NOT_SIGNED_IN };
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
+/**
+ * This request's session token: the app's bearer header wins over the site's cookie,
+ * so a request carries exactly one identity.
+ */
+async function readToken(): Promise<string | null> {
+  const bearer = parseBearer((await headers()).get("authorization"));
+  if (bearer) return bearer;
+  return (await cookies()).get(COOKIE)?.value ?? null;
+}
+
 /** The signed-in account, or null. Cached per request, so pages and components can each ask. */
 export const getSession = cache(async (): Promise<Session | null> => {
-  const token = (await cookies()).get(COOKIE)?.value;
-  if (!token) return null;
+  const token = await readToken();
+  return token ? sessionForToken(token) : null;
+});
+
+/** The live session a token belongs to, or null. getSession for a token not on this request (just issued). */
+export async function sessionForToken(token: string): Promise<Session | null> {
 
   // Between a deploy and its migration the tables aren't there yet: nobody is signed
   // in for those few minutes, rather than every page failing.
@@ -68,7 +87,7 @@ export const getSession = cache(async (): Promise<Session | null> => {
     athleteId: row.athleteId,
     displayName: row.athleteName ?? row.staffName ?? "unknown",
   };
-});
+}
 
 /** The session, if it holds one of `roles`. Admin passes every check. */
 export async function authorize(...roles: AccountRole[]): Promise<Session | null> {
@@ -95,13 +114,23 @@ export function canEditAthlete(session: Session | null, athleteId: string): bool
   return session.role === "admin" || (session.athleteId !== null && session.athleteId === athleteId);
 }
 
-export async function createSession(accountId: string): Promise<void> {
+/**
+ * Start a session and hand back its token, without setting any cookie. The iOS app
+ * gets the token in the sign-in response and sends it as a bearer header.
+ */
+export async function issueSessionToken(accountId: string): Promise<{ token: string; expiresAt: Date }> {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
 
   // Tidy up while here: nothing else reads expired sessions.
   await db.delete(sessions).where(lt(sessions.expiresAt, new Date()));
   await db.insert(sessions).values({ id: hashToken(token), accountId, expiresAt });
+  return { token, expiresAt };
+}
+
+/** Start a session for this browser: the token goes in the `session` cookie. */
+export async function createSession(accountId: string): Promise<void> {
+  const { token, expiresAt } = await issueSessionToken(accountId);
 
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
@@ -113,16 +142,16 @@ export async function createSession(accountId: string): Promise<void> {
   });
 }
 
-/** Sign an account out everywhere except this browser, e.g. after its password changed. */
+/** Sign an account out everywhere except this browser or app, e.g. after its password changed. */
 export async function destroyOtherSessions(accountId: string): Promise<void> {
-  const token = (await cookies()).get(COOKIE)?.value;
+  const token = await readToken();
   const keep = token ? hashToken(token) : "";
   await db.delete(sessions).where(and(eq(sessions.accountId, accountId), ne(sessions.id, keep)));
 }
 
 export async function destroySession(): Promise<void> {
-  const store = await cookies();
-  const token = store.get(COOKIE)?.value;
+  const token = await readToken();
   if (token) await db.delete(sessions).where(eq(sessions.id, hashToken(token)));
-  store.delete(COOKIE);
+  const store = await cookies();
+  if (store.get(COOKIE)) store.delete(COOKIE);
 }
