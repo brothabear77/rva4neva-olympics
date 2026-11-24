@@ -1,4 +1,5 @@
-// Production (AWS App Runner, see infra/aws.md).
-API_BASE_URL = https:/$()/4nxpsigzar.us-east-1.awsapprunner.com
+// Production: the OlympicsSite App Runner service (ServiceUrl in the deploy log).
+// Not 4nxpsigzar…, which is the feature-flag service (FLAG_SERVICE_URL in infra/aws.md).
+API_BASE_URL = https:/$()/vh6bk3ptpt.us-east-1.awsapprunner.com
 
 #include? "Local.xcconfig.release"
