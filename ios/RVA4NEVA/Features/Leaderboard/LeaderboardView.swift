@@ -46,8 +46,12 @@ private struct LeaderboardContent: View {
                 .listRowBackground(Theme.surface.opacity(0.45))
 
                 if !board.ties.isEmpty {
-                    Section("Tiebreakers") {
+                    Section {
                         ForEach(board.ties, id: \.self) { TieGroupView(group: $0) }
+                    } header: {
+                        Text("Tiebreakers")
+                    } footer: {
+                        Text("Level totals are split by each athlete's best single event, then their second best, and so on. The outlined score broke the tie.")
                     }
                     .listRowBackground(Theme.surface.opacity(0.45))
                 }
@@ -158,31 +162,89 @@ struct AthleteScoresView: View {
     }
 }
 
-/// Athletes level on total points, and the scores (best first) that split them.
+/// Athletes level on total points, and the scores that split them, mirroring the site's
+/// Tiebreakers (src/components/Tiebreakers.tsx): each comparison in turn ("Best event",
+/// "2nd best"…), with every athlete's event and points there, down to the score that broke
+/// the tie, which is outlined. An athlete already placed drops out of the later rows.
 private struct TieGroupView: View {
     let group: TieGroup
 
+    /// How many score positions to show: for two athletes, down to the deciding one (or all
+    /// of them if nothing decided it); for more, as deep as it took to order everyone.
+    private var rowCount: Int {
+        if group.athletes.count == 2, let decided = group.decidedAt.first ?? nil { return decided + 1 }
+        if group.athletes.count == 2 { return max(group.athletes[0].scores.count, 1) }
+        return max(group.depth, 1)
+    }
+
+    private var unresolved: Bool { group.athletes.contains { $0.settledAt == nil } }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Level on \(group.totalPoints) pts").font(.geist(.caption, weight: .semibold)).foregroundStyle(Theme.muted)
-            ForEach(group.athletes) { athlete in
-                HStack(alignment: .firstTextBaseline) {
-                    Text("\(athlete.rank)").monospacedDigit().foregroundStyle(Theme.muted).frame(width: 22, alignment: .leading)
-                    Text(athlete.athleteName).font(.geist(.subheadline, weight: .semibold))
-                    Spacer()
-                    HStack(spacing: 4) {
-                        ForEach(Array(athlete.scores.prefix(group.depth).enumerated()), id: \.offset) { index, score in
-                            Text("\(score.points)")
-                                .font(.geist(.caption).monospacedDigit())
-                                .padding(.horizontal, 6).padding(.vertical, 2)
-                                .background(index == athlete.highlightAt ? Theme.accent : Theme.ink,
-                                            in: Capsule())
-                                .foregroundStyle(index == athlete.highlightAt ? Theme.ink : Theme.paper)
-                        }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(Calculator.ordinal(group.athletes.first?.rank ?? 0)).font(.number(18)).foregroundStyle(Theme.accent)
+                Text("place").font(.geist(.subheadline)).foregroundStyle(Theme.muted)
+                Spacer()
+                Text("Level on \(group.totalPoints) pts").font(.geist(.caption)).foregroundStyle(Theme.muted)
+            }
+            Text(group.athletes.map(\.athleteName).formatted(.list(type: .and)))
+                .displayStyle(17)
+                .foregroundStyle(Theme.paper)
+
+            ForEach(0..<rowCount, id: \.self) { k in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(k == 0 ? "Best event" : "\(Calculator.ordinal(k + 1)) best")
+                        .eyebrowStyle()
+                        .foregroundStyle(Theme.muted)
+                    ForEach(group.athletes.filter { inPlay($0, at: k) }) { athlete in
+                        ScoreLine(athlete: athlete, score: athlete.scores[safe: k], deciding: athlete.highlightAt == k)
                     }
                 }
             }
+
+            if unresolved {
+                Text("Every score matches, so a new tiebreaker is needed.")
+                    .font(.geist(.caption, weight: .bold))
+                    .foregroundStyle(Theme.accent)
+            }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
     }
+
+    /// Still being compared at position k: not yet placed by an earlier score.
+    private func inPlay(_ athlete: TieGroup.Athlete, at k: Int) -> Bool {
+        guard let settled = athlete.settledAt else { return true }
+        return k <= settled
+    }
+}
+
+private struct ScoreLine: View {
+    let athlete: TieGroup.Athlete
+    let score: TieGroup.Score?
+    let deciding: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text("\(athlete.rank)").font(.number(13)).foregroundStyle(Theme.muted).frame(width: 20, alignment: .leading)
+            Text(athlete.athleteName).font(.geist(.subheadline, weight: .semibold)).foregroundStyle(Theme.paper)
+            Spacer(minLength: 8)
+            Text(score?.eventName ?? "no result")
+                .font(.geist(.caption))
+                .foregroundStyle(Theme.muted)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Text("\(score?.points ?? 0)")
+                .font(.number(15))
+                .foregroundStyle(deciding ? Theme.accent : Theme.paper)
+                .padding(.horizontal, 8).padding(.vertical, 2)
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(deciding ? Theme.accent : .clear))
+                .frame(minWidth: 44, alignment: .trailing)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(athlete.athleteName): \(score.map { "\($0.points) points in \($0.eventName)" } ?? "no result")\(deciding ? ", broke the tie" : "")")
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
 }
