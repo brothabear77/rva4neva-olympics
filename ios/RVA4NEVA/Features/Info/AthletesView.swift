@@ -41,6 +41,7 @@ struct AthletesView: View {
 struct AthleteDetailView: View {
     let athlete: AthleteSummary
     let eventCount: Int
+    @Environment(AppState.self) private var app
 
     var body: some View {
         ScrollView {
@@ -91,5 +92,15 @@ struct AthleteDetailView: View {
         .screenBackground()
         .navigationTitle(athlete.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            // Your own profile is under More; the admin edits anyone's from here.
+            if app.account?.isAdmin == true || app.account?.athleteId == athlete.id {
+                ToolbarItem(placement: .primaryAction) {
+                    NavigationLink("Edit") {
+                        ProfileEditorView(athleteId: athlete.id, isOwnAccount: app.account?.athleteId == athlete.id)
+                    }
+                }
+            }
+        }
     }
 }

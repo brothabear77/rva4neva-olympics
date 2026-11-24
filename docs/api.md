@@ -34,4 +34,28 @@ Route handlers live in `src/app/api/v1/**/route.ts`. Each one is wrapped in `api
 | GET | `athletes` | none | `{eventCount, athletes: [{id, name, photo, tagline, bio, walkout, rank, totalPoints, eventsCompleted, best}]}` |
 | GET | `guide` | none | `{events: GuideEvent[]}` |
 
-Phases 2–4 add the endpoints for profile, practice, votes, vlog, scorekeeping and admin. They are listed in the iOS port plan.
+## Endpoints (phase 2: athletes)
+
+Write endpoints reuse the website's server actions, so they enforce the same rules and limits.
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| PATCH | `me/username` `{username}` | signed in | |
+| PATCH | `me/password` `{current, password, confirm}` | signed in | signs out other sessions, but not this one |
+| PATCH | `athletes/{id}` `{name}` | that athlete or the admin | rename |
+| GET | `athletes/{id}/profile` | that athlete or the admin | `{athleteId, name, tagline, bio, photo, walkout}` |
+| PATCH | `athletes/{id}/profile` `{tagline, bio}` | that athlete or the admin | |
+| PUT | `athletes/{id}/walkout` `{kind, spotifyId}` | that athlete or the admin | `kind` is `track` or `episode` |
+| DELETE | `athletes/{id}/walkout` | that athlete or the admin | |
+| GET | `walkout/search?q=` | signed in | `{message, data: WalkoutSong[]}`; also accepts an open.spotify.com link |
+| GET | `practice[?athlete=id]` | members (`?athlete` is admin-only) | `{athleteId, today, events, attempts}` |
+| POST | `practice` `{eventId, value, attemptedOn, notes}` | athletes | `attemptedOn` is `YYYY-MM-DD`, and can't be in the future |
+| DELETE | `practice/{id}` | the owner, or the admin | |
+| GET | `proposals` | members | `{proposals: [...ProposalRow, status, quorum, mine], serverNow, limits}` |
+| POST | `proposals` `{title, body}` | athletes | |
+| PUT | `proposals/{id}/vote` `{inFavor}` | athletes | only while open |
+| DELETE | `proposals/{id}/vote` | athletes | takes the vote back |
+| POST | `proposals/{id}/withdraw` | the proposer | |
+| DELETE | `proposals/{id}` | the admin | removes the proposal and its votes |
+
+Phases 3 and 4 will add the vlog, scorekeeping and admin endpoints.

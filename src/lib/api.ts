@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import type { ActionResult } from "./actions";
 import { originAllowed, statusForFailure } from "./apiStatus";
+import { NOT_ALLOWED, NOT_SIGNED_IN } from "./authMessages";
 
 /**
  * Shared plumbing for the iOS app's JSON API under /api/v1.
@@ -64,4 +65,11 @@ export function api<C>(handler: Handler<C>): Handler<C> {
       return error("Something went wrong. Try again.", 500);
     }
   };
+}
+
+/** Why the signed-in session can't see a members' page, as a response; null if it can. */
+export function refuseUnlessMember(session: { role: string } | null): Response | null {
+  if (!session) return error(NOT_SIGNED_IN, 401);
+  if (session.role !== "athlete" && session.role !== "admin") return error(NOT_ALLOWED, 403);
+  return null;
 }

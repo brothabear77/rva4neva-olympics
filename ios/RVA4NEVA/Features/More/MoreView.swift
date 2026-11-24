@@ -32,9 +32,15 @@ struct MoreView: View {
             if let account = app.account {
                 if account.isMember {
                     Section("Athletes") {
-                        comingSoon("Progress", "chart.xyaxis.line")
+                        NavigationLink {
+                            if account.athleteId != nil { PracticeLogView() } else { AdminPracticePicker() }
+                        } label: {
+                            Label("Progress", systemImage: "chart.xyaxis.line")
+                        }
                         if app.flags?.showVlog == true { comingSoon("Vlog", "video") }
-                        comingSoon("Vote", "hand.raised")
+                        NavigationLink { VoteView() } label: {
+                            Label("Vote", systemImage: "hand.raised")
+                        }
                     }
                     .listRowBackground(Theme.surface.opacity(0.45))
                 }
@@ -50,7 +56,11 @@ struct MoreView: View {
                     .listRowBackground(Theme.surface.opacity(0.45))
                 }
                 Section("Account") {
-                    comingSoon("Profile", "person.text.rectangle")
+                    NavigationLink {
+                        ProfileEditorView(athleteId: account.athleteId, isOwnAccount: true)
+                    } label: {
+                        Label("Profile", systemImage: "person.text.rectangle")
+                    }
                     if account.isAdmin { comingSoon("Admin", "gearshape.2") }
                 }
                 .listRowBackground(Theme.surface.opacity(0.45))
@@ -80,5 +90,22 @@ struct MoreView: View {
             Text("Soon").font(.caption).foregroundStyle(Theme.muted)
         }
         .foregroundStyle(Theme.muted)
+    }
+}
+
+/// The admin has no practice log of their own: pick whose to read.
+private struct AdminPracticePicker: View {
+    @State private var loader = Loader<AthletesResponse>(API.athletes)
+
+    var body: some View {
+        LoadingView(loader: loader) { response in
+            List(response.athletes) { athlete in
+                NavigationLink(athlete.name) { PracticeLogView(athleteId: athlete.id, athleteName: athlete.name) }
+                    .listRowBackground(Theme.surface.opacity(0.45))
+            }
+        }
+        .screenBackground()
+        .navigationTitle("Progress")
+        .task { await loader.load() }
     }
 }
