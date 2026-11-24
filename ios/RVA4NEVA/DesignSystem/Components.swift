@@ -6,7 +6,7 @@ struct RankBadge: View {
 
     var body: some View {
         Text("\(rank)")
-            .font(.display(15))
+            .font(.number(15))
             .monospacedDigit()
             .frame(width: 30, height: 30)
             .foregroundStyle(rank == 1 ? Theme.ink : Theme.paper)
@@ -39,7 +39,7 @@ struct StatTile: View {
                 .foregroundStyle(emphasis ? Theme.accent : Theme.paper)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-            if let hint { Text(hint).font(.caption).foregroundStyle(Theme.muted).lineLimit(1) }
+            if let hint { Text(hint).font(.geist(.caption)).foregroundStyle(Theme.muted).lineLimit(1) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .card(padding: 12)
@@ -94,8 +94,8 @@ struct PointsLabel: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 3) {
-            Text(points.formatted()).font(.display(size)).foregroundStyle(Theme.accent).monospacedDigit()
-            Text("pts").font(.caption).foregroundStyle(Theme.muted)
+            Text(points.formatted()).font(.number(size)).foregroundStyle(Theme.accent).lineLimit(1).fixedSize()
+            Text("pts").font(.geist(.caption)).foregroundStyle(Theme.muted)
         }
     }
 }
@@ -118,8 +118,8 @@ struct WalkoutRow: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(song.title).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.paper).lineLimit(1)
-                        Text(song.artists).font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
+                        Text(song.title).font(.geist(.subheadline, weight: .semibold)).foregroundStyle(Theme.paper).lineLimit(1)
+                        Text(song.artists).font(.geist(.caption)).foregroundStyle(Theme.muted).lineLimit(1)
                     }
                     Spacer()
                     Image(systemName: "arrow.up.right.square").foregroundStyle(Theme.accent)

@@ -36,7 +36,7 @@ struct AdminView: View {
                                 Text(event.name).foregroundStyle(Theme.paper)
                                 Spacer()
                                 Text("100 = \(event.format(event.benchmarkStandard)) · 0 = \(event.format(event.benchmarkZero))")
-                                    .font(.caption.monospacedDigit()).foregroundStyle(Theme.muted)
+                                    .font(.geist(.caption).monospacedDigit()).foregroundStyle(Theme.muted)
                             }
                         }
                     }
@@ -90,20 +90,20 @@ private struct AccountRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(account.name).font(.subheadline.weight(.semibold))
+                    Text(account.name).font(.geist(.subheadline, weight: .semibold))
                     Text("@\(account.username) · \(account.isStaff ? "staff" : account.role.rawValue)")
-                        .font(.caption).foregroundStyle(Theme.muted)
+                        .font(.geist(.caption)).foregroundStyle(Theme.muted)
                 }
                 Spacer()
                 if let athleteId = account.athleteId {
                     NavigationLink("Edit") { ProfileEditorView(athleteId: athleteId, isOwnAccount: false) }
-                        .font(.caption).fixedSize()
+                        .font(.geist(.caption)).fixedSize()
                 }
             }
             // Staff logins are managed with `npm run auth:staff`, not here.
             if account.athleteId != nil {
                 Toggle("Can enter scores", isOn: Binding(get: { account.role == .scorekeeper }, set: setScorekeeper))
-                    .font(.caption)
+                    .font(.geist(.caption))
             }
         }
         .swipeActions {

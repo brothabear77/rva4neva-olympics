@@ -104,8 +104,12 @@ actor APIClient {
                 ?? "Something went wrong (\(status))."
             switch status {
             case 401:
-                // The session is gone server-side; forget it here too.
-                setToken(nil)
+                // The session is gone server-side (expired, signed out elsewhere, account
+                // removed): forget it here too, and tell the app so it stops showing you signed in.
+                if token != nil {
+                    setToken(nil)
+                    NotificationCenter.default.post(name: .sessionExpired, object: nil)
+                }
                 throw APIError.signedOut(message)
             case 403: throw APIError.forbidden(message)
             default: throw APIError.server(status: status, message: message)
@@ -124,6 +128,11 @@ actor APIClient {
 }
 
 struct Empty: Codable, Sendable {}
+
+extension Notification.Name {
+    /// Posted when the server refuses the saved session token.
+    static let sessionExpired = Notification.Name("RVA4NEVASessionExpired")
+}
 private struct ErrorBody: Decodable { let error: String }
 
 extension JSONDecoder {

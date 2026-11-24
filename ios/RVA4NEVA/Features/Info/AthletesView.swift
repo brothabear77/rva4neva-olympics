@@ -15,7 +15,7 @@ struct AthletesView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(athlete.name).displayStyle(17).foregroundStyle(Theme.paper)
                             if let tagline = athlete.tagline {
-                                Text(tagline).font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
+                                Text(tagline).font(.geist(.caption)).foregroundStyle(Theme.muted).lineLimit(1)
                             }
                         }
                         Spacer()
@@ -49,7 +49,7 @@ struct AthleteDetailView: View {
                 AthleteAvatar(name: athlete.name, photo: athlete.photo, size: 140)
                 Text(athlete.name).displayStyle(30).foregroundStyle(Theme.paper)
                 if let tagline = athlete.tagline {
-                    Text(tagline).font(.subheadline.italic()).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
+                    Text(tagline).font(.geist(.subheadline).italic()).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
                 }
 
                 HStack(spacing: 8) {
@@ -62,7 +62,7 @@ struct AthleteDetailView: View {
                     HStack {
                         Text("Best event").eyebrowStyle()
                         Spacer()
-                        Text("\(best.eventName) · \(best.formattedRaw)").font(.subheadline)
+                        Text("\(best.eventName) · \(best.formattedRaw)").font(.geist(.subheadline))
                         PointsLabel(points: best.points)
                     }
                     .card(padding: 12)

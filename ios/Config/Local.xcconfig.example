@@ -1,0 +1,9 @@
+// Copy to Local.xcconfig (git-ignored) to run on your own iPhone.
+
+// Your Apple team ID: Xcode → Settings → Accounts, or developer.apple.com → Membership.
+// A free "Personal Team" works for your own devices (apps then expire after 7 days).
+DEVELOPMENT_TEAM = ABCDE12345
+
+// A phone can't reach the Mac's "localhost". Use the Mac's Bonjour name instead
+// (System Settings → General → Sharing → Local hostname), with the phone on the same Wi-Fi.
+API_BASE_URL = http:/$()/your-mac.local:3000

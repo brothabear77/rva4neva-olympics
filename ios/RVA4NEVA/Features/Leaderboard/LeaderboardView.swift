@@ -57,7 +57,7 @@ private struct LeaderboardContent: View {
                     Section("Superlatives") {
                         ForEach(superlatives, id: \.category.slug) { result in
                             HStack {
-                                Text(result.category.label).font(.subheadline.weight(.semibold))
+                                Text(result.category.label).font(.geist(.subheadline, weight: .semibold))
                                 Spacer()
                                 Text(result.leaders.map(\.athleteName).formatted())
                                     .foregroundStyle(Theme.accent)
@@ -101,11 +101,11 @@ private struct EntryRow: View {
                 HStack(spacing: 6) {
                     Text(entry.athleteName).displayStyle(17).foregroundStyle(Theme.paper)
                     if entry.wonOnTiebreak {
-                        Image(systemName: "scalemass").font(.caption2).foregroundStyle(Theme.accent)
+                        Image(systemName: "scalemass").font(.geist(.caption2)).foregroundStyle(Theme.accent)
                             .accessibilityLabel("Placed on tiebreak")
                     }
                 }
-                Text("\(entry.eventsCompleted) of \(eventCount) events").font(.caption).foregroundStyle(Theme.muted)
+                Text("\(entry.eventsCompleted) of \(eventCount) events").font(.geist(.caption)).foregroundStyle(Theme.muted)
             }
             Spacer()
             PointsLabel(points: entry.totalPoints, size: 20)
@@ -136,13 +136,13 @@ struct AthleteScoresView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(event.name)
-                            Text(event.dayTag).font(.caption).foregroundStyle(Theme.muted)
+                            Text(event.dayTag).font(.geist(.caption)).foregroundStyle(Theme.muted)
                         }
                         Spacer()
                         if let row = entry.byEventId[event.id] {
                             VStack(alignment: .trailing, spacing: 2) {
                                 PointsLabel(points: row.points)
-                                Text(row.formattedRaw).font(.caption.monospacedDigit()).foregroundStyle(Theme.muted)
+                                Text(row.formattedRaw).font(.geist(.caption).monospacedDigit()).foregroundStyle(Theme.muted)
                             }
                         } else {
                             Text("—").foregroundStyle(Theme.muted)
@@ -164,16 +164,16 @@ private struct TieGroupView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Level on \(group.totalPoints) pts").font(.caption.weight(.semibold)).foregroundStyle(Theme.muted)
+            Text("Level on \(group.totalPoints) pts").font(.geist(.caption, weight: .semibold)).foregroundStyle(Theme.muted)
             ForEach(group.athletes) { athlete in
                 HStack(alignment: .firstTextBaseline) {
                     Text("\(athlete.rank)").monospacedDigit().foregroundStyle(Theme.muted).frame(width: 22, alignment: .leading)
-                    Text(athlete.athleteName).font(.subheadline.weight(.semibold))
+                    Text(athlete.athleteName).font(.geist(.subheadline, weight: .semibold))
                     Spacer()
                     HStack(spacing: 4) {
                         ForEach(Array(athlete.scores.prefix(group.depth).enumerated()), id: \.offset) { index, score in
                             Text("\(score.points)")
-                                .font(.caption.monospacedDigit())
+                                .font(.geist(.caption).monospacedDigit())
                                 .padding(.horizontal, 6).padding(.vertical, 2)
                                 .background(index == athlete.highlightAt ? Theme.accent : Theme.ink,
                                             in: Capsule())

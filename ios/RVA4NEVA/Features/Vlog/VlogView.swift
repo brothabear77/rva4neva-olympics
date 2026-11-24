@@ -136,15 +136,15 @@ private struct VideoCard: View {
 
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(video.title).font(.headline).foregroundStyle(Theme.paper)
+                    Text(video.title).font(.geist(.headline)).foregroundStyle(Theme.paper)
                     HStack(spacing: 4) {
                         Text(video.athleteName)
                         if let event = video.eventName { Text("· \(event)") }
                         Text("· \(video.postedAt, format: .relative(presentation: .named))")
                     }
-                    .font(.caption).foregroundStyle(Theme.muted)
+                    .font(.geist(.caption)).foregroundStyle(Theme.muted)
                     if video.private {
-                        Label("Private until the games end", systemImage: "lock").font(.caption2).foregroundStyle(Theme.muted)
+                        Label("Private until the games end", systemImage: "lock").font(.geist(.caption2)).foregroundStyle(Theme.muted)
                     }
                 }
                 Spacer()
@@ -178,7 +178,7 @@ private struct VideoCard: View {
                     .contentTransition(.symbolEffect(.replace))
                 Text("\(count)").monospacedDigit().foregroundStyle(Theme.muted)
             }
-            .font(.subheadline)
+            .font(.geist(.subheadline))
         }
         .buttonStyle(.plain)
         .disabled(!canHeart)
@@ -269,7 +269,12 @@ private struct UploadForm: View {
         case .preparing:
             ProgressView("Compressing…")
         case .uploading(let fraction):
-            ProgressView(value: fraction) { Text("Uploading \(Int(fraction * 100))%") }.tint(Theme.accent)
+            ProgressView(value: fraction) {
+                Text("Uploading \(Int(fraction * 100))%")
+            } currentValueLabel: {
+                Text("Keep the app open until it finishes.")
+            }
+            .tint(Theme.accent)
         case .finishing:
             ProgressView("Finishing…")
         case .failed(let message):

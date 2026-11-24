@@ -62,7 +62,7 @@ struct LoadingView<Value: Sendable, Content: View>: View {
             VStack(spacing: 12) {
                 ProgressView().tint(Theme.accent)
                 if loader.isSlow {
-                    Text("Waking up the scoreboard…").font(.footnote).foregroundStyle(Theme.muted)
+                    Text("Waking up the scoreboard…").font(.geist(.footnote)).foregroundStyle(Theme.muted)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

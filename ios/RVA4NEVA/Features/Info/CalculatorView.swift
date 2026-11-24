@@ -62,7 +62,7 @@ private struct CalculatorForm: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(event.name)
-                            Text("100 = \(event.format(event.benchmarkStandard))").font(.caption).foregroundStyle(Theme.muted)
+                            Text("100 = \(event.format(event.benchmarkStandard))").font(.geist(.caption)).foregroundStyle(Theme.muted)
                         }
                         Spacer()
                         TextField(event.unitLabel.isEmpty ? "Mark" : event.unitLabel, text: binding(for: event.id))
@@ -71,7 +71,7 @@ private struct CalculatorForm: View {
                             .monospacedDigit()
                             .frame(width: 80)
                         Text(points[event.id].map { "\($0)" } ?? "—")
-                            .font(.display(17)).monospacedDigit()
+                            .font(.number(17))
                             .foregroundStyle(Theme.accent)
                             .frame(width: 44, alignment: .trailing)
                     }

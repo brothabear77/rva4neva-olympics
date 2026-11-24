@@ -15,7 +15,7 @@ struct MoreView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(account.displayName).displayStyle(18)
                             Text(account.username.map { "@\($0) · \(account.role.rawValue.capitalized)" } ?? account.role.rawValue.capitalized)
-                                .font(.caption).foregroundStyle(Theme.muted)
+                                .font(.geist(.caption)).foregroundStyle(Theme.muted)
                         }
                     }
                     Button("Sign out", role: .destructive) { Task { await app.signOut() } }

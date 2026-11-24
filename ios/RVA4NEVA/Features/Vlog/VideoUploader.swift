@@ -1,6 +1,7 @@
 import AVFoundation
 import CoreTransferable
 import Foundation
+import UIKit
 import UniformTypeIdentifiers
 
 /// A video picked from Photos, copied to a temporary file we own.
@@ -49,11 +50,17 @@ final class VideoUploader {
 
     func start(movie: URL, title: String, eventId: String?, confession: Bool, maxBytes: Int) {
         task?.cancel()
-        task = Task { await run(movie: movie, title: title, eventId: eventId, confession: confession, maxBytes: maxBytes) }
+        // Uploads run only while the app is open: don't let the phone auto-lock mid-upload.
+        UIApplication.shared.isIdleTimerDisabled = true
+        task = Task {
+            await run(movie: movie, title: title, eventId: eventId, confession: confession, maxBytes: maxBytes)
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
     }
 
     func cancel() {
         task?.cancel()
+        UIApplication.shared.isIdleTimerDisabled = false
         phase = .idle
     }
 

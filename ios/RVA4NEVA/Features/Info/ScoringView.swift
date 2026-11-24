@@ -13,7 +13,7 @@ struct ScoringView: View {
                     Text("Beat the 100-point benchmark and you earn more than 100. Fall short of the 0-point benchmark and you score 0, never less.")
                     Text("Your total is the sum of your points across every event. Equal totals are split by best single event, then second best, and so on.")
                 }
-                .font(.subheadline)
+                .font(.geist(.subheadline))
                 .listRowBackground(Theme.surface.opacity(0.45))
 
                 ForEach(board.events.filter { Scoring.isScorable($0.scoring) }) { event in

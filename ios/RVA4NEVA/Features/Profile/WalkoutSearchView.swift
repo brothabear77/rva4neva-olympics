@@ -26,7 +26,7 @@ struct WalkoutSearchView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                         VStack(alignment: .leading, spacing: 2) {
                             Text(song.title).foregroundStyle(Theme.paper).lineLimit(1)
-                            Text(song.artists).font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
+                            Text(song.artists).font(.geist(.caption)).foregroundStyle(Theme.muted).lineLimit(1)
                         }
                         Spacer()
                         if song.kind == "episode" { Image(systemName: "mic").foregroundStyle(Theme.muted) }

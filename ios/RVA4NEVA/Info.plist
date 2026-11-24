@@ -27,6 +27,18 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string></string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Fonts/Oswald-Medium.ttf</string>
+		<string>Fonts/Oswald-SemiBold.ttf</string>
+		<string>Fonts/Oswald-Bold.ttf</string>
+		<string>Fonts/Geist-Regular.ttf</string>
+		<string>Fonts/Geist-Medium.ttf</string>
+		<string>Fonts/Geist-SemiBold.ttf</string>
+		<string>Fonts/Geist-Bold.ttf</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

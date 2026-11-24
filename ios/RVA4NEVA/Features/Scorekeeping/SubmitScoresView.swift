@@ -15,7 +15,7 @@ struct SubmitScoresView: View {
             VStack(spacing: 0) {
                 if grid.locked {
                     Label("The scoreboard is currently locked.", systemImage: "lock.fill")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.geist(.subheadline, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(10)
                         .background(Color.red.opacity(0.25))
@@ -57,9 +57,9 @@ private struct EventChips: View {
                         HStack(spacing: 4) {
                             Text(event.name)
                             let n = badge(event)
-                            if n > 0 { Text("\(n)").font(.caption2.bold()).padding(.horizontal, 5).background(Theme.accent, in: Capsule()).foregroundStyle(Theme.ink) }
+                            if n > 0 { Text("\(n)").font(.geist(.caption2, weight: .bold)).padding(.horizontal, 5).background(Theme.accent, in: Capsule()).foregroundStyle(Theme.ink) }
                         }
-                        .font(.caption.weight(.semibold))
+                        .font(.geist(.caption, weight: .semibold))
                         .padding(.horizontal, 10).padding(.vertical, 7)
                         .background(on ? Theme.paper : Theme.surface, in: Capsule())
                         .foregroundStyle(on ? Theme.ink : Theme.paper)
@@ -139,9 +139,9 @@ private struct EnterScores: View {
                 .focused($focused, equals: key)
                 .foregroundStyle(invalid ? .red : Theme.paper)
                 .disabled(grid.locked)
-            Text(event.unitLabel).font(.caption).foregroundStyle(Theme.muted).frame(width: 24, alignment: .leading)
+            Text(event.unitLabel).font(.geist(.caption)).foregroundStyle(Theme.muted).frame(width: 24, alignment: .leading)
             Text(points.map(String.init) ?? "")
-                .font(.display(16)).monospacedDigit()
+                .font(.number(16))
                 .foregroundStyle(typed.isEmpty ? Theme.muted : Theme.accent)
                 .frame(width: 40, alignment: .trailing)
         }
@@ -150,9 +150,9 @@ private struct EnterScores: View {
     private func saveBar(_ diff: Grid.Diff) -> some View {
         HStack {
             if !diff.invalidKeys.isEmpty {
-                Text("\(diff.invalidKeys.count) box\(diff.invalidKeys.count == 1 ? "" : "es") aren't numbers").font(.caption).foregroundStyle(.red)
+                Text("\(diff.invalidKeys.count) box\(diff.invalidKeys.count == 1 ? "" : "es") aren't numbers").font(.geist(.caption)).foregroundStyle(.red)
             } else {
-                Text(diff.changes.isEmpty ? "No changes" : "\(diff.changes.count) to save").font(.subheadline).foregroundStyle(Theme.muted)
+                Text(diff.changes.isEmpty ? "No changes" : "\(diff.changes.count) to save").font(.geist(.subheadline)).foregroundStyle(Theme.muted)
             }
             Spacer()
             if !edits.isEmpty { Button("Discard") { edits = [:] }.disabled(saving) }
@@ -285,7 +285,7 @@ private struct CSVImport: View {
                 Button { picking = true } label: {
                     Label(csv == nil ? "Choose a CSV file" : "Choose a different file", systemImage: "doc.badge.plus")
                 }
-                if let csv { Text(csv.name).font(.caption).foregroundStyle(Theme.muted) }
+                if let csv { Text(csv.name).font(.geist(.caption)).foregroundStyle(Theme.muted) }
             } footer: {
                 Text("Columns: eventSlug, athleteName, rawValue, and optionally notes. Any bad row blocks the whole import, so the board is never half-updated.")
             }
@@ -296,9 +296,9 @@ private struct CSVImport: View {
                     HStack {
                         ForEach(["create", "update", "unchanged", "error"], id: \.self) { kind in
                             VStack {
-                                Text("\(preview.counts[kind] ?? 0)").font(.display(20)).monospacedDigit()
+                                Text("\(preview.counts[kind] ?? 0)").font(.number(20))
                                     .foregroundStyle(kind == "error" && (preview.counts[kind] ?? 0) > 0 ? .red : Theme.paper)
-                                Text(kind.capitalized).font(.caption2).foregroundStyle(Theme.muted)
+                                Text(kind.capitalized).font(.geist(.caption2)).foregroundStyle(Theme.muted)
                             }
                             .frame(maxWidth: .infinity)
                         }
@@ -309,19 +309,19 @@ private struct CSVImport: View {
                     ForEach(preview.rows.filter { $0.action != .unchanged }) { row in
                         VStack(alignment: .leading, spacing: 2) {
                             HStack {
-                                Text("Line \(row.line)").font(.caption.monospacedDigit()).foregroundStyle(Theme.muted)
+                                Text("Line \(row.line)").font(.geist(.caption).monospacedDigit()).foregroundStyle(Theme.muted)
                                 Text("\(row.athleteName) · \(row.eventName ?? row.eventSlug)")
                                 Spacer()
-                                Text(row.action.rawValue.capitalized).font(.caption.bold())
+                                Text(row.action.rawValue.capitalized).font(.geist(.caption, weight: .bold))
                                     .foregroundStyle(row.action == .error ? .red : Theme.accent)
                             }
                             if let error = row.error {
-                                Text(error).font(.caption).foregroundStyle(.red)
+                                Text(error).font(.geist(.caption)).foregroundStyle(.red)
                             } else if let raw = row.rawValue {
                                 let decimals = row.decimals ?? 2
                                 let before = row.previousRawValue.map { Scoring.formatMeasurement($0, decimals: decimals) + " → " } ?? ""
                                 Text("\(before)\(Scoring.formatMeasurement(raw, decimals: decimals)) \(row.unitLabel ?? "") · \(row.points ?? 0) pts")
-                                    .font(.caption.monospacedDigit()).foregroundStyle(Theme.muted)
+                                    .font(.geist(.caption).monospacedDigit()).foregroundStyle(Theme.muted)
                             }
                         }
                     }

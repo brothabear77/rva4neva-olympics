@@ -21,10 +21,76 @@ extension Color {
     }
 }
 
+/// The site's typefaces (src/app/layout.tsx): Oswald for display, Geist for text. Bundled as
+/// static weights in Resources/Fonts (the variable fonts' default instance is hairline-thin,
+/// and CoreText won't move a variable font's weight axis for a SwiftUI .weight()).
+enum AppFont {
+    static func oswald(_ weight: Font.Weight) -> String {
+        switch weight {
+        case .bold, .heavy, .black: "Oswald-Bold"
+        case .semibold: "Oswald-SemiBold"
+        default: "Oswald-Medium"
+        }
+    }
+
+    static func geist(_ weight: Font.Weight) -> String {
+        switch weight {
+        case .bold, .heavy, .black: "Geist-Bold"
+        case .semibold: "Geist-SemiBold"
+        case .medium: "Geist-Medium"
+        default: "Geist-Regular"
+        }
+    }
+
+    /// iOS's default point size for each text style, at the standard Dynamic Type setting.
+    static func size(_ style: Font.TextStyle) -> CGFloat {
+        switch style {
+        case .largeTitle: 34
+        case .title: 28
+        case .title2: 22
+        case .title3: 20
+        case .headline, .body: 17
+        case .callout: 16
+        case .subheadline: 15
+        case .footnote: 13
+        case .caption: 12
+        case .caption2: 11
+        @unknown default: 17
+        }
+    }
+
+    /// The text style a fixed size scales with, so custom sizes still follow Dynamic Type.
+    static func style(near size: CGFloat) -> Font.TextStyle {
+        switch size {
+        case ..<13: .caption
+        case ..<15: .footnote
+        case ..<17: .subheadline
+        case ..<20: .body
+        case ..<22: .title3
+        case ..<28: .title2
+        case ..<34: .title
+        default: .largeTitle
+        }
+    }
+}
+
 extension Font {
-    /// Stands in for Oswald, the site's display face: condensed, bold, set in capitals.
+    /// Oswald, the site's display face: headings and names, set in capitals by displayStyle().
     static func display(_ size: CGFloat, weight: Font.Weight = .bold) -> Font {
-        .system(size: size, weight: weight).width(.condensed)
+        .custom(AppFont.oswald(weight), size: size, relativeTo: AppFont.style(near: size))
+    }
+
+    /// Big numbers: points, ranks, the countdown. Geist Bold rather than Oswald, because
+    /// Oswald's digits differ in width (a "1" is 30% narrower than a "0"), so a ticking
+    /// countdown or a column of points would jitter. Geist has tabular figures.
+    static func number(_ size: CGFloat, weight: Font.Weight = .bold) -> Font {
+        .custom(AppFont.geist(weight), size: size, relativeTo: AppFont.style(near: size)).monospacedDigit()
+    }
+
+    /// Geist at a text style's size, scaling with Dynamic Type like the system styles.
+    static func geist(_ style: Font.TextStyle, weight: Font.Weight? = nil) -> Font {
+        .custom(AppFont.geist(weight ?? (style == .headline ? .semibold : .regular)),
+                size: AppFont.size(style), relativeTo: style)
     }
 }
 
@@ -36,7 +102,7 @@ extension View {
 
     /// Small gold caps above a title ("Overall standings").
     func eyebrowStyle() -> some View {
-        font(.caption.weight(.semibold)).textCase(.uppercase).tracking(1.5).foregroundStyle(Theme.accent)
+        font(.geist(.caption, weight: .semibold)).textCase(.uppercase).tracking(1.5).foregroundStyle(Theme.accent)
     }
 
     func card(padding: CGFloat = 16) -> some View {

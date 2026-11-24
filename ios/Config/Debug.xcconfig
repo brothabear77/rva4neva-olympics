@@ -1,3 +1,7 @@
 // The local dev server (`npm run dev`). The Simulator shares the Mac's localhost.
 // xcconfig treats // as a comment, so the slashes are split with $().
 API_BASE_URL = http:/$()/localhost:3000
+
+// Optional, not committed: your signing team, and (to run on a phone) your Mac's address.
+// Copy Local.xcconfig.example to Local.xcconfig and fill it in.
+#include? "Local.xcconfig"

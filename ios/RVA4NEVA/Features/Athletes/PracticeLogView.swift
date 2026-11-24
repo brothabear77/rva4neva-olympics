@@ -88,7 +88,7 @@ private struct PracticeContent: View {
                                 Button(event.name) {
                                     if on { chartedEventIds.remove(event.id) } else { chartedEventIds.insert(event.id) }
                                 }
-                                .font(.caption.weight(.semibold))
+                                .font(.geist(.caption, weight: .semibold))
                                 .padding(.horizontal, 10).padding(.vertical, 6)
                                 .background(on ? Theme.accent : Theme.ink, in: Capsule())
                                 .foregroundStyle(on ? Theme.ink : Theme.paper)
@@ -109,7 +109,7 @@ private struct PracticeContent: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(event.format(attempt.rawValue)).monospacedDigit()
                                     Text(attempt.date.formatted(date: .abbreviated, time: .omitted) + (attempt.notes.isEmpty ? "" : " · \(attempt.notes)"))
-                                        .font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
+                                        .font(.geist(.caption)).foregroundStyle(Theme.muted).lineLimit(1)
                                 }
                                 Spacer()
                                 PointsLabel(points: Scoring.score(attempt.rawValue, event.scoring))
@@ -167,7 +167,7 @@ private struct PracticeChart: View {
         }
         .chartYAxisLabel("Points")
         .chartLegend(position: .bottom)
-        .overlay { if events.isEmpty { Text("Pick an event below").font(.caption).foregroundStyle(Theme.muted) } }
+        .overlay { if events.isEmpty { Text("Pick an event below").font(.geist(.caption)).foregroundStyle(Theme.muted) } }
     }
 }
 

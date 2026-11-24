@@ -22,6 +22,8 @@ struct CountdownView: View {
                     unit(parts.minutes, "Min")
                     unit(parts.seconds, "Sec")
                 }
+                // Four big numbers side by side can only grow so far before they wrap.
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(parts.days) days, \(parts.hours) hours, \(parts.minutes) minutes until kickoff")
             }
@@ -31,10 +33,12 @@ struct CountdownView: View {
     private func unit(_ value: Int, _ label: String) -> some View {
         VStack(spacing: 2) {
             Text(value, format: .number.precision(.integerLength(2...)))
-                .font(.display(large ? 44 : 30))
+                .font(.number(large ? 44 : 30))
                 .monospacedDigit()
                 .foregroundStyle(Theme.paper)
                 .contentTransition(.numericText(countsDown: true))
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
             Text(label).eyebrowStyle().foregroundStyle(Theme.muted)
         }
         .frame(minWidth: large ? 64 : 48)
@@ -56,11 +60,11 @@ struct QuoteCarousel: View {
             let quote = quotes[index % quotes.count]
             VStack(spacing: 8) {
                 Text("“\(quote.text)”")
-                    .font(.body.italic())
+                    .font(.geist(.body).italic())
                     .foregroundStyle(Theme.paper)
                     .multilineTextAlignment(.center)
                 if let author = quote.author {
-                    Text("— \(author)").font(.caption).foregroundStyle(Theme.muted)
+                    Text("— \(author)").font(.geist(.caption)).foregroundStyle(Theme.muted)
                 }
             }
             .id(index)

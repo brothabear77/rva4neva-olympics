@@ -12,11 +12,21 @@ final class AppState {
 
     private let api = APIClient.shared
 
-    /// On launch: config and whoever the saved token belongs to.
+    /// Set when the session ran out mid-use, so the app can say why you're signed out.
+    var sessionExpiredNotice = false
+
+    /// On launch: config and whoever the saved token belongs to. Then keeps listening for
+    /// the session expiring, for as long as the app runs.
     func bootstrap() async {
         async let config: SiteConfig? = try? api.get("config")
         await refreshMe()
         self.config = await config
+
+        for await _ in NotificationCenter.default.notifications(named: .sessionExpired) {
+            let wasSignedIn = account != nil
+            await refreshMe()
+            if wasSignedIn && account == nil { sessionExpiredNotice = true }
+        }
     }
 
     func refreshMe() async {

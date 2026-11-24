@@ -87,15 +87,15 @@ private struct ProposalCard: View {
                 Spacer()
                 StatusPill(status: proposal.status)
             }
-            Text("Proposed by \(proposal.proposerName)").font(.caption).foregroundStyle(Theme.muted)
-            if !proposal.body.isEmpty { Text(proposal.body).font(.subheadline) }
+            Text("Proposed by \(proposal.proposerName)").font(.geist(.caption)).foregroundStyle(Theme.muted)
+            if !proposal.body.isEmpty { Text(proposal.body).font(.geist(.subheadline)) }
 
             Tally(proposal: proposal)
 
             if proposal.status == .open {
                 HStack {
-                    Image(systemName: "clock").font(.caption)
-                    Text("Closes \(proposal.closesAt, style: .relative) from now").font(.caption)
+                    Image(systemName: "clock").font(.geist(.caption))
+                    Text("Closes \(proposal.closesAt, style: .relative) from now").font(.geist(.caption))
                 }
                 .foregroundStyle(Theme.muted)
 
@@ -176,7 +176,7 @@ private struct Tally: View {
                 Text("\(votes)/\(proposal.quorum) for quorum").monospacedDigit()
                     .foregroundStyle(votes >= proposal.quorum ? Theme.accent : Theme.muted)
             }
-            .font(.caption)
+            .font(.geist(.caption))
         }
         .accessibilityElement(children: .combine)
     }
@@ -187,7 +187,7 @@ private struct StatusPill: View {
 
     var body: some View {
         Text(status.label)
-            .font(.caption2.weight(.bold)).textCase(.uppercase)
+            .font(.geist(.caption2, weight: .bold)).textCase(.uppercase)
             .padding(.horizontal, 8).padding(.vertical, 3)
             .background(color.opacity(0.2), in: Capsule())
             .foregroundStyle(color)

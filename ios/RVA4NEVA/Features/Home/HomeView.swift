@@ -65,7 +65,7 @@ private struct LiveHome: View {
             section("Podium") {
                 if home.podium.isEmpty {
                     Text("No results yet. The podium fills in as scores come in.")
-                        .font(.subheadline).foregroundStyle(Theme.muted).card()
+                        .font(.geist(.subheadline)).foregroundStyle(Theme.muted).card()
                 } else {
                     VStack(spacing: 8) {
                         ForEach(home.podium) { entry in
@@ -75,7 +75,7 @@ private struct LiveHome: View {
                                     Text(entry.athleteName).displayStyle(18).foregroundStyle(Theme.paper)
                                     if let best = entry.best {
                                         Text("Best: \(best.eventName) (\(best.points) pts)")
-                                            .font(.caption).foregroundStyle(Theme.muted)
+                                            .font(.geist(.caption)).foregroundStyle(Theme.muted)
                                     }
                                 }
                                 Spacer()
@@ -89,14 +89,14 @@ private struct LiveHome: View {
 
             section("Latest results") {
                 if home.recent.isEmpty {
-                    Text("Nothing recorded yet.").font(.subheadline).foregroundStyle(Theme.muted).card()
+                    Text("Nothing recorded yet.").font(.geist(.subheadline)).foregroundStyle(Theme.muted).card()
                 } else {
                     VStack(spacing: 0) {
                         ForEach(home.recent) { row in
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(row.athleteName).font(.subheadline.weight(.semibold))
-                                    Text("\(row.eventName) · \(row.formattedRaw)").font(.caption).foregroundStyle(Theme.muted)
+                                    Text(row.athleteName).font(.geist(.subheadline, weight: .semibold))
+                                    Text("\(row.eventName) · \(row.formattedRaw)").font(.geist(.caption)).foregroundStyle(Theme.muted)
                                 }
                                 Spacer()
                                 PointsLabel(points: row.points)
@@ -118,8 +118,8 @@ private struct LiveHome: View {
                             HStack {
                                 Text(event.name).foregroundStyle(Theme.paper)
                                 Spacer()
-                                Text("Day \(event.day).\(event.sortOrder)").font(.caption.monospacedDigit()).foregroundStyle(Theme.muted)
-                                Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.muted)
+                                Text("Day \(event.day).\(event.sortOrder)").font(.geist(.caption).monospacedDigit()).foregroundStyle(Theme.muted)
+                                Image(systemName: "chevron.right").font(.geist(.caption)).foregroundStyle(Theme.muted)
                             }
                             .card(padding: 12)
                         }

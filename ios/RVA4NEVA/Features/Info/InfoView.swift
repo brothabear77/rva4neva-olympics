@@ -67,7 +67,7 @@ struct GuideSections: View {
 private struct RuleLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            configuration.icon.foregroundStyle(Theme.accent).font(.caption)
+            configuration.icon.foregroundStyle(Theme.accent).font(.geist(.caption))
             configuration.title
         }
     }
@@ -103,7 +103,7 @@ struct MediaView: View {
                 }
                 .accessibilityLabel(media.label)
             }
-            if let caption = media.caption { Text(caption).font(.caption).foregroundStyle(Theme.muted) }
+            if let caption = media.caption { Text(caption).font(.geist(.caption)).foregroundStyle(Theme.muted) }
         }
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
@@ -134,7 +134,7 @@ struct EventGuideView: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(guide.name).displayStyle(17)
-                        Text(guide.summary).font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
+                        Text(guide.summary).font(.geist(.caption)).foregroundStyle(Theme.muted).lineLimit(1)
                     }
                 }
                 .listRowBackground(Theme.surface.opacity(0.45))

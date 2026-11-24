@@ -14,7 +14,7 @@ struct ChangeHistoryView: View {
             if let response {
                 if response.locked {
                     Label("The scoreboard is locked: nothing can be restored right now.", systemImage: "lock.fill")
-                        .font(.footnote).listRowBackground(Color.red.opacity(0.2))
+                        .font(.geist(.footnote)).listRowBackground(Color.red.opacity(0.2))
                 }
                 ForEach(response.entries) { entry in
                     EntryRow(entry: entry, canUndo: response.canRestore && !response.locked) { confirming = entry }
@@ -25,7 +25,7 @@ struct ChangeHistoryView: View {
                     HStack {
                         Button { page -= 1 } label: { Image(systemName: "chevron.left") }.disabled(page <= 1)
                         Spacer()
-                        Text("Page \(response.page) of \(response.pageCount) · \(response.total) changes").font(.caption).foregroundStyle(Theme.muted)
+                        Text("Page \(response.page) of \(response.pageCount) · \(response.total) changes").font(.geist(.caption)).foregroundStyle(Theme.muted)
                         Spacer()
                         Button { page += 1 } label: { Image(systemName: "chevron.right") }.disabled(page >= response.pageCount)
                     }
@@ -81,29 +81,29 @@ private struct EntryRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text(entry.operationLabel).font(.caption.bold()).textCase(.uppercase)
+                Text(entry.operationLabel).font(.geist(.caption, weight: .bold)).textCase(.uppercase)
                     .foregroundStyle(entry.operation == "DELETE" ? .red : Theme.accent)
-                Text(entry.label).font(.subheadline.weight(.semibold))
+                Text(entry.label).font(.geist(.subheadline, weight: .semibold))
                 Spacer()
-                Text("#\(entry.id)").font(.caption2.monospacedDigit()).foregroundStyle(Theme.muted)
+                Text("#\(entry.id)").font(.geist(.caption2).monospacedDigit()).foregroundStyle(Theme.muted)
             }
             ForEach(entry.changes, id: \.field) { change in
                 HStack(spacing: 4) {
                     Text(change.field).foregroundStyle(Theme.muted)
                     if let old = change.old, entry.operation != "INSERT" { Text(old).strikethrough(change.new != nil) }
-                    if change.old != nil && change.new != nil && entry.operation == "UPDATE" { Image(systemName: "arrow.right").font(.caption2) }
+                    if change.old != nil && change.new != nil && entry.operation == "UPDATE" { Image(systemName: "arrow.right").font(.geist(.caption2)) }
                     if let new = change.new, entry.operation != "DELETE" { Text(new) }
                 }
-                .font(.caption.monospacedDigit())
+                .font(.geist(.caption).monospacedDigit())
             }
             Text("\(entry.changedBy) · \(entry.changedAt.formatted(date: .abbreviated, time: .shortened))\(entry.restoredFromId.map { " · from #\($0)" } ?? "")")
-                .font(.caption2).foregroundStyle(Theme.muted)
+                .font(.geist(.caption2)).foregroundStyle(Theme.muted)
             if entry.removedWithAccount {
-                Text("Removed with a deleted account").font(.caption2).foregroundStyle(Theme.muted)
+                Text("Removed with a deleted account").font(.geist(.caption2)).foregroundStyle(Theme.muted)
             }
             if canUndo, let text = entry.undoText {
                 Button(text, action: onUndo)
-                    .font(.caption.weight(.semibold))
+                    .font(.geist(.caption, weight: .semibold))
                     .buttonStyle(.bordered)
                     .disabled(entry.unrecoverable)
             }
