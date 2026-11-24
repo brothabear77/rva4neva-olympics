@@ -58,4 +58,16 @@ Write endpoints reuse the website's server actions, so they enforce the same rul
 | POST | `proposals/{id}/withdraw` | the proposer | |
 | DELETE | `proposals/{id}` | the admin | removes the proposal and its votes |
 
-Phases 3 and 4 will add the vlog, scorekeeping and admin endpoints.
+## Endpoints (phase 3: vlog)
+
+These endpoints return 404 while the `show-vlog-page` flag is off, the same as the page.
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `vlog` | members | `{configured, canUpload, limits, events, videos, confessions: {items, isPublic}}`. Each `src` is a playback URL signed for one hour. |
+| POST | `vlog/uploads` `{title, eventId, confession, contentType, sizeBytes}` | athletes | `{data: {videoId, uploadUrl}}`. PUT the file to `uploadUrl` with exactly this `Content-Type` and size, and no Authorization header. |
+| POST | `vlog/{id}/finish` | the uploader | Checks the stored size against the request, then publishes the video. |
+| DELETE | `vlog/{id}` | the uploader, or the admin | Removes the row and the stored file. |
+| PUT / DELETE | `vlog/{id}/heart` | athletes | Sets hearted or not hearted. A repeat call doesn't change anything. |
+
+Phase 4 will add the scorekeeping and admin endpoints.

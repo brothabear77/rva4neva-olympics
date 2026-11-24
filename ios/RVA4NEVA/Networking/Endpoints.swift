@@ -37,4 +37,18 @@ enum API {
     static func write(_ method: String, _ path: String) async throws -> String {
         try await write(method, path, Optional<Empty>.none)
     }
+
+    // MARK: Phase 3
+
+    static func vlog() async throws -> VlogResponse { try await APIClient.shared.get("vlog") }
+
+    static func requestUpload(title: String, eventId: String?, confession: Bool, contentType: String, sizeBytes: Int) async throws -> UploadTicket {
+        struct Body: Encodable, Sendable { let title: String; let eventId: String?; let confession: Bool; let contentType: String; let sizeBytes: Int }
+        let reply: ActionReply<UploadTicket> = try await APIClient.shared.send(
+            "POST", "vlog/uploads",
+            body: Body(title: title, eventId: eventId, confession: confession, contentType: contentType, sizeBytes: sizeBytes)
+        )
+        guard let ticket = reply.data else { throw APIError.unreadable }
+        return ticket
+    }
 }

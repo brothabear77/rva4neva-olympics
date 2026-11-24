@@ -37,7 +37,9 @@ struct MoreView: View {
                         } label: {
                             Label("Progress", systemImage: "chart.xyaxis.line")
                         }
-                        if app.flags?.showVlog == true { comingSoon("Vlog", "video") }
+                        if app.flags?.showVlog == true {
+                            NavigationLink { VlogView() } label: { Label("Vlog", systemImage: "video") }
+                        }
                         NavigationLink { VoteView() } label: {
                             Label("Vote", systemImage: "hand.raised")
                         }
