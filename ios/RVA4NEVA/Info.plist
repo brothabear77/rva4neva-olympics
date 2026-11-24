@@ -28,7 +28,7 @@
 		<true/>
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string></string>
+	<string>Connects to the #rva4neva development server on your Mac.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Fonts/Oswald-Medium.ttf</string>

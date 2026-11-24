@@ -5,11 +5,12 @@ struct RVA4NEVAApp: App {
     @State private var appState = AppState()
 
     init() {
-        // Bar and tab colours to match the site's ink background.
+        // Navigation bar titles in Oswald. The bar keeps the system's default (blurred)
+        // background: an opaque one covers the large title, so every screen's big title
+        // never drew and the small one disappeared on scrolling back to the top. The
+        // screens' ink background shows through, so the bar still matches the site.
         let nav = UINavigationBarAppearance()
-        nav.configureWithOpaqueBackground()
-        nav.backgroundColor = UIColor(Theme.ink)
-        nav.shadowColor = .clear
+        nav.configureWithDefaultBackground()
         // Oswald, scaled for Dynamic Type like the rest of the text.
         let oswald = { (size: CGFloat, style: UIFont.TextStyle) -> UIFont in
             let base = UIFont(name: "Oswald-Bold", size: size) ?? .systemFont(ofSize: size, weight: .bold)

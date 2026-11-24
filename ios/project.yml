@@ -47,7 +47,8 @@ targets:
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
         # Asked the first time a Debug build on a phone talks to the dev server on your Mac.
-        NSLocalNetworkUsageDescription: Connects to the #rva4neva development server on your Mac.
+        # Quoted: unquoted, YAML reads " #rva4neva…" as a comment and cuts the text short.
+        NSLocalNetworkUsageDescription: "Connects to the #rva4neva development server on your Mac."
         UIAppFonts:
           - Fonts/Oswald-Medium.ttf
           - Fonts/Oswald-SemiBold.ttf

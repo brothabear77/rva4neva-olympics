@@ -61,6 +61,12 @@ private struct LiveHome: View {
             }
             .frame(maxWidth: .infinity)
             .card(padding: 20)
+            // Falls over the whole hero, not just the Champion card, as on the site.
+            .overlay {
+                if !home.champions.isEmpty {
+                    ConfettiView().clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+            }
 
             section("Podium") {
                 if home.podium.isEmpty {
