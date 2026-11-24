@@ -73,3 +73,8 @@ export function refuseUnlessMember(session: { role: string } | null): Response |
   if (session.role !== "athlete" && session.role !== "admin") return error(NOT_ALLOWED, 403);
   return null;
 }
+
+/** A refusal (401/403) as a response, worded the way the actions word it. */
+export function refused(session: unknown): Response {
+  return session ? error(NOT_ALLOWED, 403) : error(NOT_SIGNED_IN, 401);
+}

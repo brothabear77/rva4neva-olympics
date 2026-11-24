@@ -70,4 +70,21 @@ These endpoints return 404 while the `show-vlog-page` flag is off, the same as t
 | DELETE | `vlog/{id}` | the uploader, or the admin | Removes the row and the stored file. |
 | PUT / DELETE | `vlog/{id}/heart` | athletes | Sets hearted or not hearted. A repeat call doesn't change anything. |
 
-Phase 4 will add the scorekeeping and admin endpoints.
+## Endpoints (phase 4: scorekeeping and admin)
+
+Writes are refused with `The scoreboard is currently locked.` while the `open-submission` flag is off.
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `scores` | scorekeepers, the admin | `{events, athletes, values: [{athleteId, eventId, rawValue}], locked}` |
+| POST | `scores` `{changes: [{athleteId, athleteName, eventId, value}]}` | scorekeepers, the admin | Adds or replaces scores in one transaction |
+| POST | `scores/delete` `{cells: [{athleteId, athleteName, eventId}]}` | scorekeepers, the admin | A POST, because request bodies on DELETE are unreliable |
+| POST | `imports/preview` `{csv}` | scorekeepers, the admin | `{data: ImportPreview}`; writes nothing |
+| POST | `imports` `{csv, filename}` | scorekeepers, the admin | Validated again; any bad row blocks the whole import |
+| GET | `changelog?page=&size=` | anyone | `{entries, total, page, pageCount, size, locked, canRestore}` |
+| POST | `changelog/{id}/restore` | scorekeepers, the admin | Adds a new entry and never rewrites history |
+| GET | `admin` | the admin | `{accounts, registrationLocked, events}` |
+| PUT | `settings/registration-locked` `{locked}` | the admin | |
+| PUT | `accounts/{id}/scorekeeper` `{on}` | the admin | Athlete accounts only |
+| DELETE | `athletes/{id}` | the admin | Deletes the athlete and everything of theirs; can't be undone |
+| PATCH | `events/{id}/benchmarks` `{benchmarkStandard, benchmarkZero, decimals}` | the admin | Re-scores every result in the event. The path takes the event's id, in the `[slug]` folder. |

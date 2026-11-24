@@ -48,8 +48,8 @@ struct MoreView: View {
                 }
                 if account.canScore {
                     Section {
-                        comingSoon("Submit Results", "square.and.pencil")
-                        comingSoon("Change History", "clock.arrow.circlepath")
+                        NavigationLink { SubmitScoresView() } label: { Label("Submit Results", systemImage: "square.and.pencil") }
+                        NavigationLink { ChangeHistoryView() } label: { Label("Change History", systemImage: "clock.arrow.circlepath") }
                     } header: {
                         Text("Scorekeeping")
                     } footer: {
@@ -63,7 +63,16 @@ struct MoreView: View {
                     } label: {
                         Label("Profile", systemImage: "person.text.rectangle")
                     }
-                    if account.isAdmin { comingSoon("Admin", "gearshape.2") }
+                    if account.isAdmin {
+                        NavigationLink { AdminView() } label: { Label("Admin", systemImage: "gearshape.2") }
+                    }
+                }
+                .listRowBackground(Theme.surface.opacity(0.45))
+            }
+
+            if app.account?.canScore != true {
+                Section {
+                    NavigationLink { ChangeHistoryView() } label: { Label("Change History", systemImage: "clock.arrow.circlepath") }
                 }
                 .listRowBackground(Theme.surface.opacity(0.45))
             }
@@ -81,17 +90,6 @@ struct MoreView: View {
             NavigationStack { SignInView() }.presentationDetents([.large])
         }
         .refreshable { await app.refreshMe() }
-    }
-
-    /// Screens from later phases of the port: shown so the shape of the app is visible,
-    /// but greyed out until they're built.
-    private func comingSoon(_ title: String, _ icon: String) -> some View {
-        HStack {
-            Label(title, systemImage: icon)
-            Spacer()
-            Text("Soon").font(.caption).foregroundStyle(Theme.muted)
-        }
-        .foregroundStyle(Theme.muted)
     }
 }
 

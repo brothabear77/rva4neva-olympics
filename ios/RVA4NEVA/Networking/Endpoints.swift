@@ -51,4 +51,18 @@ enum API {
         guard let ticket = reply.data else { throw APIError.unreadable }
         return ticket
     }
+
+    // MARK: Phase 4
+
+    static func grid() async throws -> GridResponse { try await APIClient.shared.get("scores") }
+    static func admin() async throws -> AdminResponse { try await APIClient.shared.get("admin") }
+    static func changelog(page: Int, size: Int = 25) async throws -> ChangeLogResponse {
+        try await APIClient.shared.get("changelog", query: [URLQueryItem(name: "page", value: "\(page)"),
+                                                           URLQueryItem(name: "size", value: "\(size)")])
+    }
+    static func previewImport(csv: String) async throws -> ImportPreview {
+        let reply: ActionReply<ImportPreview> = try await APIClient.shared.send("POST", "imports/preview", body: ["csv": csv])
+        guard let preview = reply.data else { throw APIError.unreadable }
+        return preview
+    }
 }
