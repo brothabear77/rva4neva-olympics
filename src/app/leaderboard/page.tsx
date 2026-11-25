@@ -42,13 +42,11 @@ export default async function LeaderboardPage() {
       <PageHeader
         eyebrow="Overall standings"
         title="Leaderboard"
-        description="Every athlete's total is the sum of their points across every event."
         actions={<LiveRefresh />}
       />
 
       {scored.length === 0 ? (
         <EmptyState title="No scores yet">
-          The board fills in as results come in.
           {canScore(session) ? (
             <>
               {" "}Head to{" "}

@@ -57,19 +57,15 @@ struct QuoteCarousel: View {
 
     var body: some View {
         if !quotes.isEmpty {
-            let quote = quotes[index % quotes.count]
-            VStack(spacing: 8) {
-                Text("“\(quote.text)”")
-                    .font(.geist(.body).italic())
-                    .foregroundStyle(Theme.paper)
-                    .multilineTextAlignment(.center)
-                if let author = quote.author {
-                    Text("— \(author)").font(.geist(.caption)).foregroundStyle(Theme.muted)
-                }
+            // The clip has to belong to a container that stays put. Clipping the quote itself
+            // moves the clip along with it, so the outgoing quote stayed visible as it slid
+            // out past the edge of the card.
+            ZStack {
+                QuoteText(quote: quotes[index % quotes.count])
+                    .id(index)
+                    .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
+                                            removal: .move(edge: .leading).combined(with: .opacity)))
             }
-            .id(index)
-            .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
-                                    removal: .move(edge: .leading).combined(with: .opacity)))
             .frame(maxWidth: .infinity, minHeight: 120)
             .clipped()
             .contentShape(Rectangle())
@@ -80,5 +76,22 @@ struct QuoteCarousel: View {
                 withAnimation(.easeInOut(duration: 0.4)) { index += 1 }
             }
         }
+    }
+}
+
+private struct QuoteText: View {
+    let quote: Quote
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Text("\u{201C}\(quote.text)\u{201D}")
+                .font(.geist(.body).italic())
+                .foregroundStyle(Theme.paper)
+                .multilineTextAlignment(.center)
+            if let author = quote.author {
+                Text("— \(author)").font(.geist(.caption)).foregroundStyle(Theme.muted)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 }
